@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,18 +26,51 @@ type QueueItem struct {
 	// Overdue (ТЗ п.4.2): ждёт обработки дольше SLA — для счётчика просроченных.
 	Overdue           bool      `json:"overdue"`
 	AttachmentsCount  int       `json:"attachments_count"`
+	// Маршрутизация (ТЗ п.4.5): группа категории обращения и особые случаи.
+	RoutingGroup    *string `json:"routing_group,omitempty"` // «по правилу это группа …»
+	NoExpertInGroup bool    `json:"no_expert_in_group"`      // в группе нет активных специалистов
+	GroupOverloaded bool    `json:"group_overloaded"`        // все специалисты группы у лимита
 }
+
+// routingFlagsSQL — общие SQL-выражения маршрутизации (ТЗ п.4.5) для
+// строчных выборок (очередь оператора, метаданные админа). $N — лимит
+// активных обращений на специалиста из настроек администратора.
+const routingFlagsSQL = `
+	       c.specialist_group,
+	       c.specialist_group IS NOT NULL AND NOT EXISTS (
+	         SELECT 1 FROM users ug
+	         WHERE ug.role = 'expert' AND ug.active
+	           AND ug.specialist_group = c.specialist_group
+	       ),
+	       c.specialist_group IS NOT NULL AND EXISTS (
+	         SELECT 1 FROM users ug
+	         WHERE ug.role = 'expert' AND ug.active
+	           AND ug.specialist_group = c.specialist_group
+	       ) AND NOT EXISTS (
+	         SELECT 1 FROM users uf
+	         WHERE uf.role = 'expert' AND uf.active
+	           AND uf.specialist_group = c.specialist_group
+	           AND (SELECT count(*) FROM appeals ax
+	                WHERE ax.assigned_expert_id = uf.id
+	                  AND ax.status IN ('assigned', 'in_progress',
+	                                    'needs_clarification', 'answer_ready')) < %d
+	       )`
 
 // ListOperatorQueue — новые и возвращённые обращения + зависшие с запросом
 // передачи. Кризисные сверху, затем срочные, затем просроченные, затем
 // по времени ожидания (старые сверху).
 func (st *Store) ListOperatorQueue(ctx context.Context) ([]QueueItem, error) {
+	set, err := st.GetSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := st.DB.QueryContext(ctx, `
 		SELECT a.id, a.applicant_type, c.name, a.status, a.priority, a.crisis_detected,
 		       a.transfer_requested, a.return_count, a.created_at,
 		       EXTRACT(EPOCH FROM (now() - a.created_at))::int,
 		       EXTRACT(EPOCH FROM (now() - a.created_at))::int > $1,
-		       (SELECT count(*) FROM attachments at WHERE at.appeal_id = a.id)
+		       (SELECT count(*) FROM attachments at WHERE at.appeal_id = a.id),
+		       `+fmt.Sprintf(routingFlagsSQL, set.ExpertActiveLimit)+`
 		FROM appeals a LEFT JOIN categories c ON c.id = a.category_id
 		WHERE a.status IN ('new', 'returned') OR a.transfer_requested
 		ORDER BY a.crisis_detected DESC,
@@ -53,7 +87,8 @@ func (st *Store) ListOperatorQueue(ctx context.Context) ([]QueueItem, error) {
 		var it QueueItem
 		if err := rows.Scan(&it.ID, &it.ApplicantType, &it.CategoryName, &it.Status,
 			&it.Priority, &it.CrisisDetected, &it.TransferRequested, &it.ReturnCount,
-			&it.CreatedAt, &it.WaitingSec, &it.Overdue, &it.AttachmentsCount); err != nil {
+			&it.CreatedAt, &it.WaitingSec, &it.Overdue, &it.AttachmentsCount,
+			&it.RoutingGroup, &it.NoExpertInGroup, &it.GroupOverloaded); err != nil {
 			return nil, err
 		}
 		out = append(out, it)
@@ -191,13 +226,23 @@ type AdminAppealMeta struct {
 	Version        int       `json:"version"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
+	// Маршрутизация (ТЗ п.4.5): подсветка администратору обращений,
+	// для которых не нашлось исполнителя по правилу.
+	RoutingGroup    *string `json:"routing_group,omitempty"`
+	NoExpertInGroup bool    `json:"no_expert_in_group"`
+	GroupOverloaded bool    `json:"group_overloaded"`
 }
 
 func (st *Store) ListAppealsMeta(ctx context.Context) ([]AdminAppealMeta, error) {
+	set, err := st.GetSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := st.DB.QueryContext(ctx, `
 		SELECT a.id, a.applicant_type, c.name, a.status, a.priority, a.crisis_detected,
 		       EXISTS (SELECT 1 FROM crisis_contacts cc WHERE cc.appeal_id = a.id),
-		       u.login, a.return_count, a.version, a.created_at, a.updated_at
+		       u.login, a.return_count, a.version, a.created_at, a.updated_at,
+		       `+fmt.Sprintf(routingFlagsSQL, set.ExpertActiveLimit)+`
 		FROM appeals a
 		LEFT JOIN categories c ON c.id = a.category_id
 		LEFT JOIN users u ON u.id = a.assigned_expert_id
@@ -211,7 +256,8 @@ func (st *Store) ListAppealsMeta(ctx context.Context) ([]AdminAppealMeta, error)
 		var m AdminAppealMeta
 		if err := rows.Scan(&m.ID, &m.ApplicantType, &m.CategoryName, &m.Status,
 			&m.Priority, &m.CrisisDetected, &m.HasCrisisContact, &m.ExpertLogin,
-			&m.ReturnCount, &m.Version, &m.CreatedAt, &m.UpdatedAt); err != nil {
+			&m.ReturnCount, &m.Version, &m.CreatedAt, &m.UpdatedAt,
+			&m.RoutingGroup, &m.NoExpertInGroup, &m.GroupOverloaded); err != nil {
 			return nil, err
 		}
 		out = append(out, m)

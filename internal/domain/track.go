@@ -25,6 +25,7 @@ func GenerateTrackNumber() (string, error) {
 	return fmt.Sprintf("ОТК-%s-%s-%s", string(chars[0:4]), string(chars[4:8]), string(chars[8:12])), nil
 }
 
+// NormalizeTrack приводит трек-номер к каноническому виду.
 func NormalizeTrack(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.ToUpper(s)

@@ -10,7 +10,8 @@ import (
 )
 
 // AdminSetStatus — административная смена статуса в обход машины состояний
-// (разблокировка зависших обращений).
+// (ТЗ п.4: разблокировка зависших обращений). Причина обязательна и попадает
+// в журнал аудита вместе со старым и новым значением.
 func (st *Store) AdminSetStatus(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, to domain.Status, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
@@ -29,7 +30,8 @@ func (st *Store) AdminSetStatus(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
-
+// ReturnForRework — возврат на доработку оператором (ТЗ п.5):
+// answer_ready -> returned, счётчик возвратов растёт, причина попадает в аудит.
 func (st *Store) ReturnForRework(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
@@ -58,7 +60,10 @@ func (st *Store) ReturnForRework(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
-
+// MyStats — персональная аналитика сотрудника «по себе» (ТЗ п.5).
+// Оператору: назначено/в работе/завершено/отклонено по его действиям.
+// Эксперту: активные и завершённые из назначенных ему, число рекомендаций,
+// среднее время решения его обращений.
 type MyStats struct {
 	Role             string   `json:"role"`
 	Assigned         int      `json:"assigned"`
