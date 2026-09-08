@@ -14,7 +14,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//go:embed migrations/*.sql
+
 var migrationsFS embed.FS
 
 
@@ -58,8 +58,6 @@ func Migrate(ctx context.Context, d *sql.DB) error {
 	return nil
 }
 
-// splitStatements делит SQL-файл на отдельные выражения.
-// Допустимо, так как миграции не содержат функций с «;» внутри.
 func splitStatements(s string) []string {
 	var out []string
 	for _, part := range strings.Split(s, ";") {
