@@ -11,7 +11,6 @@ import (
 	"otklik/internal/domain"
 )
 
-// QueueItem — строка очереди оператора: без текста обращения и чата.
 type QueueItem struct {
 	ID                uuid.UUID `json:"id"`
 	ApplicantType     string    `json:"applicant_type"`
@@ -23,18 +22,14 @@ type QueueItem struct {
 	ReturnCount       int       `json:"return_count"`
 	CreatedAt         time.Time `json:"created_at"`
 	WaitingSec        int       `json:"waiting_sec"`
-	// Ждёт обработки дольше SLA — для счётчика просроченных.
 	Overdue           bool      `json:"overdue"`
 	AttachmentsCount  int       `json:"attachments_count"`
-	// Маршрутизация: группа категории обращения и особые случаи.
-	RoutingGroup    *string `json:"routing_group,omitempty"` // «по правилу это группа …»
-	NoExpertInGroup bool    `json:"no_expert_in_group"`      // в группе нет активных специалистов
-	GroupOverloaded bool    `json:"group_overloaded"`        // все специалисты группы у лимита
+	RoutingGroup      *string   `json:"routing_group,omitempty"`
+	NoExpertInGroup   bool      `json:"no_expert_in_group"`
+	GroupOverloaded   bool      `json:"group_overloaded"`
 }
 
-// routingFlagsSQL — общие SQL-выражения маршрутизации для строчных выборок
-// (очередь оператора, метаданные админа). $N — лимит активных обращений
-// на специалиста из настроек администратора.
+// routingFlagsSQL — общие SQL-выражения маршрутизации; $N — лимит активных обращений из настроек.
 const routingFlagsSQL = `
 	       c.specialist_group,
 	       c.specialist_group IS NOT NULL AND NOT EXISTS (
@@ -56,9 +51,6 @@ const routingFlagsSQL = `
 	                                    'needs_clarification', 'answer_ready')) < %d
 	       )`
 
-// ListOperatorQueue — новые и возвращённые обращения + зависшие с запросом
-// передачи. Кризисные сверху, затем срочные, затем просроченные, затем
-// по времени ожидания (старые сверху).
 func (st *Store) ListOperatorQueue(ctx context.Context) ([]QueueItem, error) {
 	set, err := st.GetSettings(ctx)
 	if err != nil {
@@ -96,30 +88,21 @@ func (st *Store) ListOperatorQueue(ctx context.Context) ([]QueueItem, error) {
 	return out, rows.Err()
 }
 
-// OperatorListItem — строка общего списка обращений оператора:
-// как строка очереди, но с ответственным экспертом и без ожидания.
 type OperatorListItem struct {
-	ID             uuid.UUID `json:"id"`
-	ApplicantType  string    `json:"applicant_type"`
-	CategoryName   *string   `json:"category_name"`
-	Status         string    `json:"status"`
-	Priority       string    `json:"priority"`
+	ID                uuid.UUID `json:"id"`
+	ApplicantType     string    `json:"applicant_type"`
+	CategoryName      *string   `json:"category_name"`
+	Status            string    `json:"status"`
+	Priority          string    `json:"priority"`
 	CrisisDetected    bool      `json:"crisis_detected"`
 	TransferRequested bool      `json:"transfer_requested"`
 	AssignedExpert    *string   `json:"assigned_expert"`
-	ReturnCount    int        `json:"return_count"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	// NoReplySec: сколько секунд прошло с последнего сообщения заявителя,
-	// на которое специалист ещё не ответил; nil — если неотвеченных
-	// сообщений нет. Текст переписки в списке не отдаётся.
-	NoReplySec *int `json:"no_reply_sec"`
+	ReturnCount       int       `json:"return_count"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	NoReplySec        *int      `json:"no_reply_sec"`
 }
 
-// ListOperatorAppeals — все обращения для панели оператора с фильтром:
-// '' — любые, 'active' — незавершённые, 'distributed' — распределённые,
-// иначе точное совпадение статуса. Зависшие без ответа (дольше SLA)
-// поднимаются вверх списка.
 func (st *Store) ListOperatorAppeals(ctx context.Context, status string) ([]OperatorListItem, error) {
 	rows, err := st.DB.QueryContext(ctx, `
 		WITH la AS (
@@ -168,7 +151,6 @@ func (st *Store) ListOperatorAppeals(ctx context.Context, status string) ([]Oper
 	return out, rows.Err()
 }
 
-// ExpertListItem — строка списка обращений эксперта.
 type ExpertListItem struct {
 	ID             uuid.UUID `json:"id"`
 	ApplicantType  string    `json:"applicant_type"`
@@ -180,7 +162,6 @@ type ExpertListItem struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-// ListExpertAppeals — только обращения, где эксперт участник (SQL-фильтрация).
 func (st *Store) ListExpertAppeals(ctx context.Context, expertID uuid.UUID,
 	status, category, priority string) ([]ExpertListItem, error) {
 	rows, err := st.DB.QueryContext(ctx, `
@@ -211,26 +192,22 @@ func (st *Store) ListExpertAppeals(ctx context.Context, expertID uuid.UUID,
 	return out, rows.Err()
 }
 
-// AdminAppealMeta — метаданные обращения для администратора:
-// без текста, чата, вложений, заметок, контактов и трек-номера.
 type AdminAppealMeta struct {
-	ID             uuid.UUID `json:"id"`
-	ApplicantType  string    `json:"applicant_type"`
-	CategoryName   *string   `json:"category_name"`
-	Status         string    `json:"status"`
-	Priority       string    `json:"priority"`
-	CrisisDetected bool      `json:"crisis_detected"`
-	HasCrisisContact bool    `json:"has_crisis_contact"`
-	ExpertLogin    *string   `json:"assigned_expert"`
-	ReturnCount    int       `json:"return_count"`
-	Version        int       `json:"version"`
-	CreatedAt      time.Time `json:"created_at"`
-	UpdatedAt      time.Time `json:"updated_at"`
-	// Подсветка администратору обращений, для которых
-	// не нашлось исполнителя по правилу.
-	RoutingGroup    *string `json:"routing_group,omitempty"`
-	NoExpertInGroup bool    `json:"no_expert_in_group"`
-	GroupOverloaded bool    `json:"group_overloaded"`
+	ID               uuid.UUID `json:"id"`
+	ApplicantType    string    `json:"applicant_type"`
+	CategoryName     *string   `json:"category_name"`
+	Status           string    `json:"status"`
+	Priority         string    `json:"priority"`
+	CrisisDetected   bool      `json:"crisis_detected"`
+	HasCrisisContact bool      `json:"has_crisis_contact"`
+	ExpertLogin      *string   `json:"assigned_expert"`
+	ReturnCount      int       `json:"return_count"`
+	Version          int       `json:"version"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	RoutingGroup     *string   `json:"routing_group,omitempty"`
+	NoExpertInGroup  bool      `json:"no_expert_in_group"`
+	GroupOverloaded  bool      `json:"group_overloaded"`
 }
 
 func (st *Store) ListAppealsMeta(ctx context.Context) ([]AdminAppealMeta, error) {

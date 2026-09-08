@@ -1,7 +1,3 @@
-// Карточка обращения сотрудника: метаданные, описание, анкета, чат с
-// заявителем, внутренние заметки и аудит. Пока карточка открыта, чат/заметки/
-// статус обновляются поллингом каждые 5 секунд (с защитой от наложения),
-// при этом введённый пользователем черновик в полях не затирается.
 import { $, esc, fmtTime, badge, kv, toast } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { ruStatus, ruPrio, ruAppType, ruGroup, ruAuthor, ruEvent } from '../core/i18n.js';
@@ -13,8 +9,6 @@ import { loadAdminAppeals } from './admin.js';
 
 let detailId = null;
 
-// Свежий список специалистов с нагрузкой: для подтверждения назначения
-// перегруженного и кнопки «назначить рекомендуемого».
 let expertsLoad = new Map();
 const ROUTE_TERMINAL = { completed: 1, rejected: 1, closed_no_response: 1 };
 
@@ -31,8 +25,6 @@ export async function openDetail(id) {
   $('detCard').classList.remove('hidden');
   $('detCard').scrollIntoView({ behavior: 'smooth' });
   await refreshDetail();
-  // пока карточка открыта, чат/заметки/статус обновляются сами:
-  // новые сообщения от заявителя видны сразу, без перезагрузки страницы
   detailPoller.start();
 }
 
@@ -61,8 +53,6 @@ async function refreshDetail(silent) {
     (a.rejection_reason ? kv('Причина отклонения', esc(a.rejection_reason)) : '') +
     (a.crisis_contact ? kv('Кризисный контакт', esc(a.crisis_contact)) : '');
   $('dDesc').textContent = a.description || '';
-  // Вложения заявителя: просмотр; метаданные уже вырезаны на сервере.
-  // Администратору контент заявителя недоступен.
   const atts = a.attachments || [];
   $('dAttachTitle').classList.toggle('hidden', isAdmin || !atts.length);
   $('dAttach').classList.toggle('hidden', isAdmin || !atts.length);
@@ -73,8 +63,6 @@ async function refreshDetail(silent) {
   $('dAnswers').innerHTML = (a.intake_answers || []).length
     ? '<h3>Ответы анкеты</h3>' + a.intake_answers.map((x) => `<div class="kv"><b>${esc(x.question)}</b><span>${esc(x.answer)}</span></div>`).join('')
     : '';
-  // Подсказка системы по категории — только оператору; решение
-  // остаётся за человеком (кнопка лишь подставляет вариант).
   const sug = a.category_suggestion;
   const showSug = !!me && me.role === 'operator' && sug && sug.category_id !== a.category_id;
   $('dSuggest').classList.toggle('hidden', !showSug);
@@ -84,8 +72,6 @@ async function refreshDetail(silent) {
       (sug.matched_keywords && sug.matched_keywords.length ? `, маркеры: ${sug.matched_keywords.map(esc).join(', ')}` : '') +
       `. <button class="ghost small" data-action="apply-suggestion" data-arg="${esc(sug.category_id)}">Применить</button>`;
   }
-  // Подсказка маршрутизации — «по правилу это группа „…“, свободен
-  // такой-то». Назначить можно любого — решение за человеком.
   const rt = a.routing;
   const showRt = isOperator && rt && !ROUTE_TERMINAL[a.status] &&
     (!a.assigned_expert_id || a.transfer_requested);
@@ -110,16 +96,12 @@ async function refreshDetail(silent) {
   }
   $('dOpActions').classList.toggle('hidden', !(me && (me.role === 'operator' || me.role === 'admin')));
   $('dExActions').classList.toggle('hidden', !(me && me.role === 'expert'));
-  // Отклонение и завершение — только оператору, смена статуса — админу.
   $('opCompleteRow').classList.toggle('hidden', !isOperator);
   $('opRejectRow').classList.toggle('hidden', !isOperator);
   $('adStatusRow').classList.toggle('hidden', !isAdmin);
-  // Администратор текст обращения и анкету не читает.
   $('dDescTitle').classList.toggle('hidden', isAdmin);
   $('dDesc').classList.toggle('hidden', isAdmin);
   $('dDescRestricted').classList.toggle('hidden', !isAdmin);
-  // Подсказка и набор доступных действий зависят от статуса — чтобы не
-  // показывать кнопки, которые бэкенд отвергнет как «state conflict».
   const EX_HINT = {
     new: 'Обращение ещё не назначено специалисту — дождитесь назначения оператором.',
     assigned: 'Обращение назначено вам. Возьмите его в работу, когда будете готовы.',
@@ -133,7 +115,6 @@ async function refreshDetail(silent) {
   };
   const TERMINAL = { completed: 1, rejected: 1, closed_no_response: 1 };
   const st = a.status;
-  // Оператор и администратор переписку не читают — чат скрыт.
   const noChat = !!me && (me.role === 'operator' || me.role === 'admin');
   $('dChatBody').classList.toggle('hidden', noChat);
   $('dChatRestricted').classList.toggle('hidden', !noChat);
@@ -148,8 +129,6 @@ async function refreshDetail(silent) {
   if (me && (me.role === 'operator' || me.role === 'admin')) {
     try {
       const exps = (await api('GET', '/api/staff/experts')).experts || [];
-      // Рядом со специалистом видна его текущая нагрузка N/лимит;
-      // ⚠ — специалист достиг лимита активных обращений.
       expertsLoad = new Map(exps.map((e2) => [e2.id, e2]));
       const cur = $('dExpert').value; // не сбрасываем выбор оператора при автополлинге
       $('dExpert').innerHTML = exps.map((e2) =>
@@ -157,7 +136,6 @@ async function refreshDetail(silent) {
       if (cur) $('dExpert').value = cur;
     } catch (e) {}
   }
-  // Ответственный эксперт подключает коллегу-соисполнителя.
   if (me && me.role === 'expert') {
     try {
       const exps = (await api('GET', '/api/staff/experts')).experts || [];
@@ -176,8 +154,6 @@ async function refreshDetail(silent) {
     `<div class="msg"><div class="a">${esc(ruAuthor(m.author_type))}${m.author_login ? ' · ' + esc(m.author_login) : ''} · ${fmtTime(m.created_at)}</div>${esc(m.text)}</div>`).join('')
     || '<div class="note">пока нет сообщений</div>';
   $('dMsgs').scrollTop = 1e9;
-  // Заметки видны участникам обращения и оператору (только чтение),
-  // заявителю — никогда.
   const isExpertRole = !!me && me.role === 'expert';
   const canNotes = isExpertRole || (!!me && me.role === 'operator');
   $('dNotesWrap').classList.toggle('hidden', !canNotes);
@@ -193,9 +169,6 @@ async function refreshDetail(silent) {
   } else {
     $('dNotes').innerHTML = '';
   }
-  // Heartbeat присутствия и список коллег в карточке. Пока другой
-  // специалист вводит ответ заявителю, поле ввода блокируется —
-  // двойной ответ исключён.
   api('POST', '/api/appeals/' + detailId + '/presence', { typing: $('dMsgText').value.trim().length > 0 }).catch(() => {});
   let present = [];
   try { present = (await api('GET', '/api/appeals/' + detailId + '/presence')).present || []; } catch (e) {}
@@ -212,10 +185,6 @@ async function refreshDetail(silent) {
     const evs = (await api('GET', '/api/appeals/' + detailId + '/events')).events || [];
     $('dEvents').innerHTML = evs.slice().reverse().map((ev) =>
       `<div style="margin:4px 0">${fmtTime(ev.created_at)} — <b>${esc(ruEvent(ev.type))}</b>${ev.initiator_login ? ' (' + esc(ev.initiator_login) + ')' : ''}${ev.reason ? ': ' + esc(ev.reason) : ''}</div>`).join('') || '—';
-    // Оператор видит причину возврата и решает — переназначить или закрыть.
-    // Запрос пересмотра от специалиста (transfer-request) важнее: эксперт
-    // приоритет не меняет, при несогласии оставляет заметку и просит
-    // оператора переназначить; причина приезжает событием аудита.
     const tr = evs.find((ev) => ev.type === 'transfer_requested');
     const ret = evs.find((ev) => ev.type === 'status' && ev.new_value === 'returned');
     let opHintText = '';
@@ -230,7 +199,6 @@ async function refreshDetail(silent) {
   } catch (e) { $('dEvents').textContent = 'аудит доступен оператору и админу'; }
 }
 
-// ---------- Отправка сообщений и заметок ----------
 async function dSendMsg() {
   const t = $('dMsgText').value.trim();
   if (!t || !detailId) return;
@@ -251,9 +219,6 @@ async function dSendNote() {
   } catch (e) { toast(e.message); }
 }
 
-// ---------- Действия над обращением ----------
-// Общий путь: POST /api/appeals/{id}/{action}, тост, перезагрузка карточки
-// и зависимых списков согласно роли текущего сотрудника.
 async function act(path, body, msg) {
   const me = staffState.me;
   try {
@@ -266,16 +231,12 @@ async function act(path, body, msg) {
   } catch (e) { toast(e.message); }
 }
 
-// Назначить перегруженного можно, но оператор подтверждает осознанно:
-// лимит — рамка, а не запрет.
 const opAssign = () => {
   const sel = expertsLoad.get($('dExpert').value);
   if (sel && sel.active_count >= sel.limit &&
       !confirm(`${sel.login} уже ведёт ${sel.active_count} обращений (лимит ${sel.limit}). Всё равно назначить?`)) return;
   act('assign', { expert_id: $('dExpert').value, reason: $('dAssignReason').value.trim() }, 'Эксперт назначен');
 };
-// Кнопка из подсказки маршрутизации: назначить свободного/наименее
-// загруженного специалиста группы одним действием.
 const opAssignRecommended = (login) => {
   const found = [...expertsLoad.values()].find((e2) => e2.login === login);
   if (!found) { toast('Специалист не найден, выберите вручную'); return; }
@@ -286,8 +247,6 @@ const opReject = () => act('reject', { reason: $('dRejectReason').value.trim() |
 const opComplete = () => act('complete', { recommendation: $('dCompleteRec').value.trim() || 'Рекомендация оператора' }, 'Обращение завершено');
 const opPriority = () => act('priority', { priority: $('dPriority').value, reason: '' }, 'Приоритет изменён');
 const opCategory = () => act('category', { category_id: $('dCategory').value, reason: '' }, 'Категория изменена');
-// Администратор разблокирует зависшие обращения: смена статуса
-// с обязательной причиной, фиксируется в журнале аудита.
 const adStatus = () => {
   const reason = $('dAdminStatusReason').value.trim();
   if (reason.length < 5) { toast('Укажите причину смены статуса (минимум 5 символов)'); return; }
@@ -298,8 +257,6 @@ const exClarify = () => act('clarify', null, 'Запрошено уточнен�
 const exRecommendation = () => act('recommendation', { recommendation: $('dRec').value.trim() }, 'Рекомендация опубликована');
 const exTransfer = () => act('transfer-request', { reason: $('dTransferReason').value.trim() || 'требуется другой специалист' }, 'Запрос отправлен оператору');
 const exContributor = () => act('contributors', { expert_id: $('dContributor').value }, 'Коллега подключён к обращению');
-// Закрытие без ответа и возврат на доработку — только оператор,
-// поэтому кнопки живут в панели оператора.
 const opCloseNoResponse = () => {
   if (confirm('Закрыть обращение без ответа заявителя?')) act('close-no-response', null, 'Обращение закрыто');
 };
@@ -308,7 +265,6 @@ const opReturn = () => {
   if (reason.length < 5) { toast('Укажите причину возврата (минимум 5 символов)'); return; }
   return act('return', { reason }, 'Обращение возвращено на доработку');
 };
-// Подставить категорию из подсказки в селектор; подтверждение — за оператором.
 const applySuggestion = (catId) => {
   const sel = $('dCategory');
   if (catId && sel && sel.querySelector(`option[value="${catId}"]`)) sel.value = catId;

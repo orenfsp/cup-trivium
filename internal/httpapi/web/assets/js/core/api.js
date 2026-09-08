@@ -1,9 +1,3 @@
-// Тонкая обёртка над fetch: JSON в обе стороны, bearer-токен сотрудника
-// и человекочитаемые ошибки из ответа API.
-
-// Токен сессии сотрудника живёт в sessionStorage: он уникален для каждой
-// вкладки, поэтому в соседних вкладках можно параллельно работать под
-// разными сотрудниками.
 const STAFF_TOKEN_KEY = 'otklik_staff_token';
 
 export const staffToken = () => sessionStorage.getItem(STAFF_TOKEN_KEY);

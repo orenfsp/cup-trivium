@@ -28,10 +28,10 @@ func TestCanTransition(t *testing.T) {
 	}
 
 	forbidden := []struct{ from, to Status }{
-		{StatusNew, StatusInProgress},        // минуя назначение
-		{StatusAssigned, StatusAnswerReady},  // минуя работу
-		{StatusCompleted, StatusNew},         // терминальный статус
-		{StatusRejected, StatusAssigned},     // терминальный статус
+		{StatusNew, StatusInProgress},       // минуя назначение
+		{StatusAssigned, StatusAnswerReady}, // минуя работу
+		{StatusCompleted, StatusNew},        // терминальный статус
+		{StatusRejected, StatusAssigned},    // терминальный статус
 		{StatusClosedNoResponse, StatusInProgress},
 		{StatusInProgress, StatusInProgress}, // самопереход
 		{StatusNew, Status("hacked")},        // неизвестный статус
@@ -81,8 +81,8 @@ func TestDetectCrisis(t *testing.T) {
 
 func TestNormalizeTrack(t *testing.T) {
 	cases := map[string]string{
-		"ОТК-X7KD-R9MF-Q3HP":  "ОТКX7KDR9MFQ3HP",
-		"otk-x7kd-r9mf-q3hp":  "ОТКX7KDR9MFQ3HP", // латинская OTK -> ОТК
+		"ОТК-X7KD-R9MF-Q3HP":   "ОТКX7KDR9MFQ3HP",
+		"otk-x7kd-r9mf-q3hp":   "ОТКX7KDR9MFQ3HP", // латинская OTK -> ОТК
 		" отк-X7KД-R9mf-q3hp ": "ОТКX7KДR9MFQ3HP", // пробелы и регистр
 	}
 	for in, want := range cases {

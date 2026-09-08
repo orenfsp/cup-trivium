@@ -14,7 +14,6 @@ import (
 	"otklik/internal/domain"
 )
 
-// newToken создаёт сессионный токен и его SHA-256 хеш (в БД хранится только хеш).
 func newToken() (token, tokenHash string, err error) {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
@@ -63,9 +62,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResp{"login and password are required"})
 		return
 	}
-	// Лимит защищает от перебора паролей и расходуется только неуспехом
-	// (тот же паттерн, что у входа по трек-номеру): верные учётные данные
-	// всегда проходят и прощают прежние опечатки.
 	u, hash, err := s.st.GetUserByLogin(r.Context(), req.Login)
 	if err == nil {
 		err = bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.Password))
@@ -94,9 +90,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setCookie(w, staffCookie, token)
-	// Токен дублируется в ответе: фронтенд кладёт его в sessionStorage и шлёт
-	// в заголовке Authorization, что позволяет держать разные учётки сотрудников
-	// в разных вкладках одного браузера параллельно.
+	// Токен дублируется в ответе: фронтенд шлёт его в Authorization — разные учётки в разных вкладках.
 	writeJSON(w, http.StatusOK, map[string]any{
 		"user_id":          u.ID,
 		"login":            u.Login,
@@ -107,7 +101,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// bearerToken возвращает токен из заголовка Authorization: Bearer <token>.
 func bearerToken(r *http.Request) string {
 	h := r.Header.Get("Authorization")
 	if len(h) > 7 && strings.EqualFold(h[:7], "Bearer ") {
@@ -155,7 +148,6 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, resp)
 }
 
-// actorPtr возвращает указатель на UserID сотрудника для событий аудита.
 func actorPtr(p domain.Principal) *uuid.UUID {
 	if !p.IsStaff() {
 		return nil

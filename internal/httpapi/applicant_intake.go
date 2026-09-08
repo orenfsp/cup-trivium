@@ -32,16 +32,15 @@ type createAppealReq struct {
 }
 
 type appealCreatedResp struct {
-	TrackNumber        string               `json:"track_number"`
-	AppealID           string               `json:"appeal_id"`
-	Status             domain.Status        `json:"status"`
-	StatusExplanation  string               `json:"status_explanation"`
-	CrisisDetected     bool                 `json:"crisis_detected"`
-	CrisisHelp         []domain.CrisisHelp  `json:"crisis_help,omitempty"`
+	TrackNumber       string              `json:"track_number"`
+	AppealID          string              `json:"appeal_id"`
+	Status            domain.Status       `json:"status"`
+	StatusExplanation string              `json:"status_explanation"`
+	CrisisDetected    bool                `json:"crisis_detected"`
+	CrisisHelp        []domain.CrisisHelp `json:"crisis_help,omitempty"`
 }
 
-// handleCreateAppeal — анонимное создание обращения. Трек-номер выдаётся
-// ровно один раз и является единственным способом доступа заявителя.
+// handleCreateAppeal — анонимное создание обращения; трек-номер выдаётся ровно один раз и является единственным способом доступа заявителя.
 func (s *Server) handleCreateAppeal(w http.ResponseWriter, r *http.Request) {
 	if !s.rl.allow("appeal:"+clientIP(r), 5, time.Hour) {
 		writeJSON(w, http.StatusTooManyRequests, errorResp{"too many appeals from this address"})
@@ -112,7 +111,6 @@ func (s *Server) handleCreateAppeal(w http.ResponseWriter, r *http.Request) {
 	}
 	params.CrisisDetected = domain.DetectCrisis(texts...)
 
-	// Уникальный трек-номер (в БД хранится только его хеш).
 	var trackNumber string
 	for i := 0; i < 10; i++ {
 		tn, err := domain.GenerateTrackNumber()
@@ -154,12 +152,8 @@ type verifyTrackReq struct {
 	TrackNumber string `json:"track_number"`
 }
 
-// handleVerifyTrack обменивает трек-номер на короткоживущую сессию заявителя.
+// handleVerifyTrack обменивает трек-номер на сессию заявителя; лимит защищает от перебора и расходуется только неверными номерами.
 func (s *Server) handleVerifyTrack(w http.ResponseWriter, r *http.Request) {
-	// Лимит защищает от перебора трек-номеров. Верный трек-номер — это и есть
-	// предъявление секрета, поэтому он проходит всегда (и сбрасывает счётчик
-	// неудач): переключение между сохранёнными обращениями и вход после
-	// опечаток не блокируются. Лимит расходуют только неверные номера.
 	ip := clientIP(r)
 	var req verifyTrackReq
 	if !decodeJSON(w, r, &req) {
@@ -188,8 +182,6 @@ func (s *Server) handleVerifyTrack(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, err)
 		return
 	}
-	// Верный трек-номер — доказательство владения обращением: прощаем
-	// прежние неудачные попытки, чтобы опечатки не блокировали заявителя.
 	s.rl.reset("track:" + ip)
 	s.setCookie(w, applicantCookie, token)
 	s.writeApplicantView(w, r, appealID)

@@ -1,4 +1,3 @@
-// Package db открывает соединение, применяет миграции и наполняет seed-данными.
 package db
 
 import (
@@ -17,9 +16,6 @@ import (
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-
-
-// Open открывает пул соединений и проверяет его доступность.
 func Open(ctx context.Context, databaseURL string) (*sql.DB, error) {
 	d, err := sql.Open("pgx", databaseURL)
 	if err != nil {
@@ -34,7 +30,6 @@ func Open(ctx context.Context, databaseURL string) (*sql.DB, error) {
 	return d, nil
 }
 
-// Migrate применяет все встроенные SQL-миграции (идемпотентные).
 func Migrate(ctx context.Context, d *sql.DB) error {
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
@@ -58,8 +53,7 @@ func Migrate(ctx context.Context, d *sql.DB) error {
 	return nil
 }
 
-// splitStatements делит SQL-файл на отдельные выражения.
-// Допустимо, так как миграции не содержат функций с «;» внутри.
+// Наивное разбиение допустимо: миграции не содержат «;» внутри функций.
 func splitStatements(s string) []string {
 	var out []string
 	for _, part := range strings.Split(s, ";") {
@@ -71,7 +65,6 @@ func splitStatements(s string) []string {
 	return out
 }
 
-// Seed создаёт демо-сотрудников и стартовые категории, если БД пуста.
 func Seed(ctx context.Context, d *sql.DB, defaultPwd string) error {
 	var catCount, userCount int
 	if err := d.QueryRowContext(ctx, `SELECT count(*) FROM categories`).Scan(&catCount); err != nil {

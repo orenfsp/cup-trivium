@@ -9,8 +9,6 @@ import (
 	"otklik/internal/domain"
 )
 
-// AssignExpert назначает ответственного эксперта. Допустимо из статусов
-// new/returned, при подтверждении передачи (transfer_requested) и админ-override.
 func (st *Store) AssignExpert(ctx context.Context, appealID, expertID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
@@ -51,7 +49,6 @@ func (st *Store) AssignExpert(ctx context.Context, appealID, expertID uuid.UUID,
 	})
 }
 
-// Reject отклоняет обращение (спам / вне компетенции) с обязательной причиной.
 func (st *Store) Reject(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
@@ -72,7 +69,6 @@ func (st *Store) Reject(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
-// CompleteByOperator — оператор помог самостоятельно: new -> completed.
 func (st *Store) CompleteByOperator(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, recommendation string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {

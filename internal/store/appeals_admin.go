@@ -9,9 +9,7 @@ import (
 	"otklik/internal/domain"
 )
 
-// AdminSetStatus — административная смена статуса в обход машины состояний:
-// разблокировка зависших обращений. Причина обязательна и попадает
-// в журнал аудита вместе со старым и новым значением.
+// AdminSetStatus — смена статуса в обход машины состояний (разблокировка зависших); причина обязательна.
 func (st *Store) AdminSetStatus(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, to domain.Status, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
@@ -30,8 +28,6 @@ func (st *Store) AdminSetStatus(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
-// ReturnForRework — возврат на доработку оператором:
-// answer_ready -> returned, счётчик возвратов растёт, причина попадает в аудит.
 func (st *Store) ReturnForRework(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
@@ -60,10 +56,6 @@ func (st *Store) ReturnForRework(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
-// MyStats — персональная аналитика сотрудника «по себе».
-// Оператору: назначено/в работе/завершено/отклонено по его действиям.
-// Эксперту: активные и завершённые из назначенных ему, число рекомендаций,
-// среднее время решения его обращений.
 type MyStats struct {
 	Role             string   `json:"role"`
 	Assigned         int      `json:"assigned"`
@@ -81,7 +73,6 @@ func (st *Store) GetMyStats(ctx context.Context, role domain.Role, userID uuid.U
 	s.Role = string(role)
 
 	if role == domain.RoleOperator {
-		// Обращения, которые оператор назначал (его действие «assign» в аудите).
 		if err := st.DB.QueryRowContext(ctx, `
 			SELECT count(DISTINCT e.appeal_id) FROM appeal_events e
 			WHERE e.actor_id = $1 AND e.event_type = 'assign'`, userID).Scan(&s.Assigned); err != nil {
@@ -107,7 +98,6 @@ func (st *Store) GetMyStats(ctx context.Context, role domain.Role, userID uuid.U
 		return s, nil
 	}
 
-	// Эксперт: обращения, где он участник (ответственный или соисполнитель).
 	if err := st.DB.QueryRowContext(ctx, `
 		SELECT count(*) FROM appeals a JOIN appeal_participants p ON p.appeal_id = a.id
 		WHERE p.expert_id = $1 AND a.`+activeStatusFilter, userID).Scan(&s.Active); err != nil {
@@ -118,7 +108,6 @@ func (st *Store) GetMyStats(ctx context.Context, role domain.Role, userID uuid.U
 		WHERE p.expert_id = $1 AND a.status = 'completed'`, userID).Scan(&s.Resolved); err != nil {
 		return s, err
 	}
-	// Публикация рекомендации фиксируется переходом в answer_ready.
 	if err := st.DB.QueryRowContext(ctx, `
 		SELECT count(*) FROM appeal_events
 		WHERE actor_id = $1 AND event_type = 'status' AND new_value = 'answer_ready'`, userID).Scan(&s.Recommendations); err != nil {
@@ -138,13 +127,11 @@ func (st *Store) GetMyStats(ctx context.Context, role domain.Role, userID uuid.U
 	return s, nil
 }
 
-// StatRow — строка агрегата для панели аналитики.
 type StatRow struct {
 	Label string `json:"label"`
 	Count int    `json:"count"`
 }
 
-// AdminStats — агрегаты для панели аналитики администратора.
 type AdminStats struct {
 	Total             int       `json:"total"`
 	Active            int       `json:"active"`
@@ -158,8 +145,6 @@ type AdminStats struct {
 	BySpecialistGroup []StatRow `json:"by_specialist_group"`
 }
 
-// AdminStats собирает агрегаты по всем обращениям: объёмы, нагрузка по
-// статусам/категориям/специальностям и среднее время решения.
 func (st *Store) GetAdminStats(ctx context.Context) (AdminStats, error) {
 	var s AdminStats
 	if err := st.DB.QueryRowContext(ctx,
@@ -185,7 +170,6 @@ func (st *Store) GetAdminStats(ctx context.Context) (AdminStats, error) {
 		`SELECT count(*) FROM appeals WHERE created_at > now() - interval '30 days'`).Scan(&s.Last30Days); err != nil {
 		return s, err
 	}
-	// Среднее время решения: от создания до завершения (часы).
 	var avg sql.NullFloat64
 	if err := st.DB.QueryRowContext(ctx, `
 		SELECT count(*), avg(extract(epoch from (updated_at - created_at)) / 3600.0)

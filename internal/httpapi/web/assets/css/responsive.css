@@ -1,4 +1,3 @@
-/* Планшеты и десктоп: широкие строки форм, кнопки авто-ширины, две колонки. */
 @media(min-width:640px){
   .row{flex-direction:row;gap:12px}
   .row>*{flex:1}

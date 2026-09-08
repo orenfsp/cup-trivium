@@ -9,16 +9,12 @@ import (
 	"otklik/internal/domain"
 )
 
-// ---- Администратор: разблокировка зависших обращений и аналитика ----
-
 type adminStatusReq struct {
 	Status string `json:"status"`
 	Reason string `json:"reason"`
 }
 
-// handleAdminSetStatus — смена статуса любого обращения администратором.
-// Причина обязательна; действие фиксируется в журнале аудита. Машина
-// состояний сознательно не применяется — смысл действия в разблокировке.
+// Машина состояний сознательно не применяется — смысл действия в разблокировке.
 func (s *Server) handleAdminSetStatus(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 	if p.Role != domain.RoleAdmin {
@@ -51,7 +47,6 @@ func (s *Server) handleAdminSetStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.staffAppeal(r, a, p))
 }
 
-// handleAdminStats — агрегаты для панели аналитики администратора.
 func (s *Server) handleAdminStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := s.st.GetAdminStats(r.Context())
 	if err != nil {
@@ -61,10 +56,6 @@ func (s *Server) handleAdminStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, stats)
 }
 
-// ---- Аналитика и выгрузки ----
-// Оператор и эксперт видят статистику «по себе», администратор — по всем.
-
-// handleMyStats — персональная аналитика оператора и эксперта.
 func (s *Server) handleMyStats(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 	if p.Role != domain.RoleOperator && p.Role != domain.RoleExpert {
@@ -79,9 +70,6 @@ func (s *Server) handleMyStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, stats)
 }
 
-// handleExportAppeals — выгрузка списка обращений в CSV (без текста обращений
-// и персональных данных). Оператор и администратор выгружают все обращения,
-// эксперт — только назначенные ему.
 func (s *Server) handleExportAppeals(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 

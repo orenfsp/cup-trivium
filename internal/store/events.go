@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Event — запись истории (DTO для staff-проекций).
 type Event struct {
 	ID        uuid.UUID  `json:"id"`
 	ActorID   *uuid.UUID `json:"actor_id"`
@@ -39,13 +38,11 @@ func (st *Store) ListEvents(ctx context.Context, appealID uuid.UUID) ([]Event, e
 	return out, rows.Err()
 }
 
-// StatusHistoryItem — история статусов для заявителя (без причин и акторов).
 type StatusHistoryItem struct {
 	Status    string    `json:"status"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// ListStatusHistoryForApplicant — заявитель видит только статусы и время.
 func (st *Store) ListStatusHistoryForApplicant(ctx context.Context, appealID uuid.UUID) ([]StatusHistoryItem, error) {
 	rows, err := st.DB.QueryContext(ctx, `
 		SELECT new_value, created_at FROM appeal_events

@@ -1,4 +1,3 @@
-// Package store — слой доступа к данным (все SQL сосредоточены здесь).
 package store
 
 import (
@@ -8,14 +7,13 @@ import (
 
 	"github.com/google/uuid"
 )
-// Store объединяет все репозитории над одним *sql.DB.
+
 type Store struct {
 	DB *sql.DB
 }
 
 func New(db *sql.DB) *Store { return &Store{DB: db} }
 
-// User — сотрудник (оператор, эксперт или администратор).
 type User struct {
 	ID              uuid.UUID `json:"id"`
 	Login           string    `json:"login"`
@@ -82,7 +80,6 @@ func (st *Store) UpdateUser(ctx context.Context, id uuid.UUID, role, group *stri
 	return err
 }
 
-// SetUserActive блокирует/разблокирует сотрудника и завершает его сессии.
 func (st *Store) SetUserActive(ctx context.Context, id uuid.UUID, active bool) error {
 	tx, err := st.DB.BeginTx(ctx, nil)
 	if err != nil {
@@ -100,8 +97,6 @@ func (st *Store) SetUserActive(ctx context.Context, id uuid.UUID, active bool) e
 	return tx.Commit()
 }
 
-// ---- Сессии сотрудников и заявителей (хранится только хеш токена) ----
-
 func (st *Store) CreateStaffSession(ctx context.Context, tokenHash string, userID uuid.UUID, expires time.Time) error {
 	_, err := st.DB.ExecContext(ctx,
 		`INSERT INTO staff_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,
@@ -109,7 +104,6 @@ func (st *Store) CreateStaffSession(ctx context.Context, tokenHash string, userI
 	return err
 }
 
-// GetStaffSession возвращает userID активной сессии (0, если нет).
 func (st *Store) GetStaffSession(ctx context.Context, tokenHash string) (uuid.UUID, bool, error) {
 	var userID uuid.UUID
 	err := st.DB.QueryRowContext(ctx,

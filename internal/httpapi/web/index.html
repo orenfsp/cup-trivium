@@ -12,9 +12,6 @@
 </head>
 <body>
 <script>
-// Режим подставляется сервером при отдаче страницы: "applicant" — публичный
-// порт (заявители), "staff" — служебный порт (сотрудники). Класс режима
-// вешается на body до первой отрисовки, чтобы чужой раздел не мигал.
 window.UI_MODE = "__OTKLIK_UI_MODE__" === "staff" ? "staff" : "applicant";
 document.body.classList.add(window.UI_MODE + "-mode");
 document.title = window.UI_MODE === "staff" ? "Отклик — панель сотрудника" : "Отклик — защита психики в вузе";
@@ -27,8 +24,6 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
 </header>
 <main>
 <section id="secApplicant">
-  <!-- Первый экран: что это за сервис, что происходит после отправки
-       и почему это безопасно — до любой формы. -->
   <div class="card" id="introCard">
     <h2>Что это за сервис</h2>
     <p data-informal="«Отклик» — место, где можно осторожно рассказать о трудной ситуации и получить помощь: психология, конфликты, юриспруденция. Без регистрации и без имени." data-formal="«Отклик» — место, где можно осторожно рассказать о трудной ситуации и получить помощь: психология, конфликты, юриспруденция. Без регистрации и без имени.">«Отклик» — место, где можно осторожно рассказать о трудной ситуации и получить помощь: психология, конфликты, юриспруденция. Без регистрации и без имени.</p>
@@ -65,14 +60,10 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
       <div><label>Категория</label><select id="apCat"></select></div>
     </div>
     <label class="chk"><input type="checkbox" id="apFree"> Не знаю, как это назвать — расскажу своими словами</label>
-    <!-- Тот же пункт есть и в списке категорий — человеку в стрессе
-         должно быть достаточно одного клика. -->
     <label id="apDescLabel" data-informal="Расскажи о том, что происходит, своими словами" data-formal="Расскажите о том, что происходит, своими словами">Расскажи о том, что происходит, своими словами</label>
     <textarea id="apDesc" placeholder="Что происходит?"></textarea>
     <label data-informal="Если хочешь, оставь контакт для срочной связи (необязательно)" data-formal="При желании оставьте контакт для срочной связи (необязательно)">Если хочешь, оставь контакт для срочной связи (необязательно)</label>
     <input type="text" id="apCrisis" placeholder="например: telegram @...">
-    <!-- Уточняющие вопросы с вариантами ответа: необязательные,
-         помогают направить обращение нужному специалисту. -->
     <h3 class="muted-h" data-informal="Пара вопросов, чтобы быстрее помочь (можно пропустить)" data-formal="Пара вопросов, чтобы быстрее помочь (можно пропустить)">Пара вопросов, чтобы быстрее помочь (можно пропустить)</h3>
     <div id="apQuestions"></div>
     <div id="apErr" class="err-box hidden"></div>
@@ -105,7 +96,6 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
     <div id="avExpl" class="ok-box"></div>
     <div id="avCrisis" class="err-box hidden"></div>
     <div id="avMeta"></div>
-    <!-- Своё обращение заявитель видит целиком и может дополнить. -->
     <h3 id="avDescTitle" data-informal="Что ты рассказал" data-formal="Содержание обращения">Содержание обращения</h3>
     <div id="avDesc" class="note" style="white-space:pre-wrap"></div>
     <div id="avAppendBlock">
@@ -113,7 +103,6 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
       <textarea id="avAppendText" data-informal-ph="Что ещё важно знать специалисту? Это увидит только он" data-formal-ph="Что ещё важно знать специалисту? Это увидит только он" placeholder="Что ещё важно знать специалисту?"></textarea>
       <div class="btnrow" style="margin-top:8px"><button class="ghost" data-action="applicant-append">Добавить к обращению</button></div>
     </div>
-    <!-- Вложения: до 5 файлов по 10 МБ, метаданные вырезаются на сервере. -->
     <h3>Вложения</h3>
     <div id="avAttach"></div>
     <div id="avUploadBlock">
@@ -145,7 +134,6 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
       </div>
       <textarea id="avComment" placeholder="Комментарий (необязательно)"></textarea>
     </div>
-    <!-- После завершения всегда можно написать снова. -->
     <div id="avAgainBlock" class="hidden" style="margin-top:12px">
       <button class="act" data-action="write-again" data-informal="Написать снова" data-formal="Написать снова">Написать снова</button>
     </div>
@@ -271,8 +259,6 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
       <div class="form-foot"><button class="act small" data-action="admin-create-category">Создать</button></div>
       <div id="adCats"></div>
       <hr class="divider">
-      <!-- Лимит активных обращений на специалиста — рамка маршрутизации
-           (категории и группы настраиваются выше). -->
       <h3>Маршрутизация</h3>
       <div class="row">
         <div><label>Лимит активных обращений на специалиста</label><input type="number" id="adLimit" min="1" max="100"></div>
@@ -294,19 +280,14 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
       <h2>Обращение <span id="dStatus"></span></h2>
     </div>
     <div id="dCrisis" class="err-box">⚠ Обнаружен кризисный сценарий</div>
-    <!-- Кто из специалистов сейчас в карточке обращения. -->
     <div id="dPresence" class="presence hidden"></div>
     <div id="dMeta"></div>
     <h3 id="dDescTitle">Описание</h3><pre class="raw" id="dDesc"></pre>
     <div id="dDescRestricted" class="note hidden">Текст обращения и ответы анкеты администратору недоступны: администратор работает с метаданными, статусами и аналитикой.</div>
-    <!-- Вложения заявителя: метаданные вырезаны на сервере, здесь — просмотр. -->
     <h3 id="dAttachTitle" class="hidden">Вложения</h3>
     <div id="dAttach" class="note"></div>
     <div id="dAnswers"></div>
-    <!-- Подсказка системы по категории в окне обработки оператора. -->
     <div id="dSuggest" class="act-hint hidden"></div>
-    <!-- Подсказка маршрутизации: группа по правилу и свободный исполнитель
-         с учётом лимита; назначить можно любого. -->
     <div id="dRouting" class="act-hint hidden"></div>
 
     <div id="dOpActions" class="hidden actions-panel">
@@ -399,7 +380,6 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
         <div id="dNotesWrap">
           <h3>Внутренние заметки <span class="note" style="font-weight:400">— не видны заявителю</span></h3>
           <div class="chatwrap"><div class="msgs" id="dNotes"></div></div>
-          <!-- Заметки пишут специалисты-участники; оператор читает. -->
           <div class="chat-send" id="dNoteForm">
             <textarea id="dNoteText" placeholder="Заметка"></textarea>
             <button class="ghost" data-action="detail-send-note">Добавить</button>
@@ -412,7 +392,6 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
     </div>
   </div>
 </section>
-
 
 </main>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>

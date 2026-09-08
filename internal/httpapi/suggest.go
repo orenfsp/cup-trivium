@@ -9,9 +9,6 @@ import (
 	"otklik/internal/store"
 )
 
-// categorySuggestion — подсказка системы по категории обращения:
-// оператору показывается, куда система относит обращение и по каким
-// маркерам. Подсказка не заменяет решение оператора.
 type categorySuggestion struct {
 	CategoryID      uuid.UUID `json:"category_id"`
 	CategoryName    string    `json:"category_name"`
@@ -19,8 +16,6 @@ type categorySuggestion struct {
 	MatchedKeywords []string  `json:"matched_keywords"`
 }
 
-// groupMarkers — маркеры-подстроки (в нижнем регистре, без окончаний),
-// по которым текст обращения относится к профильной группе специалистов.
 var groupMarkers = map[string][]string{
 	"psychologists": {
 		"травл", "буллинг", "дразн", "оскорбл", "обзыв", "угроз", "гроз", "страш",
@@ -43,17 +38,13 @@ var groupMarkers = map[string][]string{
 	},
 }
 
-// groupTitles — русские названия профильных групп для подсказки оператору.
 var groupTitles = map[string]string{
-	"psychologists":       "психолог",
-	"conflictologists":    "конфликтолог",
-	"lawyers":             "юрист",
-	"social_pedagogues":   "социальный педагог",
+	"psychologists":     "психолог",
+	"conflictologists":  "конфликтолог",
+	"lawyers":           "юрист",
+	"social_pedagogues": "социальный педагог",
 }
 
-// suggestCategory скорит профильные группы по маркерам в тексте (описание +
-// ответы анкеты), затем внутри лучшей группы выбирает категорию по
-// совпадению слов её названия. Возвращает nil, если маркеров не нашлось.
 func (s *Server) suggestCategory(ctx context.Context, a store.Appeal, answers []store.IntakeAnswer) *categorySuggestion {
 	var b strings.Builder
 	b.WriteString(a.Description)
@@ -85,7 +76,6 @@ func (s *Server) suggestCategory(ctx context.Context, a store.Appeal, answers []
 	if err != nil {
 		return nil
 	}
-	// Категория в группе: та, чьё название сильнее всего пересекается с текстом.
 	var bestCat *store.Category
 	bestCatScore := -1
 	for i := range cats {

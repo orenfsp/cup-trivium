@@ -1,6 +1,3 @@
-// Анкета нового обращения: тип заявителя, категория/свободный текст,
-// описание, кризисный контакт и необязательные уточняющие вопросы
-// с вариантами ответов. Тон текстов меняется вместе с типом заявителя.
 import { $, esc, showErr, hideErr } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { registerActions } from '../core/actions.js';
@@ -13,8 +10,6 @@ function syncFree() {
   $('apCat').parentElement.style.opacity = $('apFree').checked ? 0.5 : 1;
 }
 
-// Уточняющие вопросы приходят с вариантами ответов: каждый вопрос — select,
-// пустой вариант («пропустить») выбран по умолчанию.
 async function renderQuestions() {
   try {
     const qs = (await api('GET', '/api/intake-questions')).questions || [];
@@ -41,7 +36,6 @@ async function createAppeal() {
     free_text: $('apFree').checked,
     description: desc,
     crisis_contact: $('apCrisis').value.trim(),
-    // Ответы собираются только из заполненных вопросов анкеты.
     answers: [...document.querySelectorAll('#apQuestions select')]
       .map((s) => ({ question: s.dataset.q, answer: s.value }))
       .filter((a) => a.answer)
@@ -51,8 +45,6 @@ async function createAppeal() {
       showErr('apErr', new Error(t('Выбери категорию — так мы скорее найдём подходящего специалиста', 'Выберите категорию — так мы скорее найдём подходящего специалиста')));
       return;
     }
-    // Пункт «Не знаю, как это назвать» — обычная категория с free_form=true:
-    // сервер сам переведёт обращение в режим свободного описания.
     body.category_id = $('apCat').value;
   }
   try {
@@ -84,8 +76,6 @@ export async function intakeInit() {
 
 registerActions({
   'create-appeal': createAppeal,
-  // Две точки входа с первого экрана: подать обращение
-  // и проверить статус по трек-номеру.
   'goto-new': () => $('newAppealCard').scrollIntoView({ behavior: 'smooth', block: 'start' }),
   'goto-track': () => $('trkInput').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' }),
 });

@@ -12,67 +12,60 @@ import (
 	"otklik/internal/store"
 )
 
-// staffAppealResp — полная проекция обращения для сотрудников.
-// Трек-номер (хеш) не раскрывается никому после создания.
+// staffAppealResp — полная проекция обращения для сотрудников;
+// трек-номер (хеш) не раскрывается никому после создания.
 type staffAppealResp struct {
-	ID                uuid.UUID            `json:"id"`
-	ApplicantType     domain.ApplicantType `json:"applicant_type"`
-	CategoryID        *uuid.UUID           `json:"category_id"`
-	CategoryName      *string              `json:"category_name"`
-	FreeTextMode      bool                 `json:"free_text_mode"`
-	Description       string               `json:"description"`
-	Status            domain.Status        `json:"status"`
-	Priority          domain.Priority      `json:"priority"`
-	CrisisDetected    bool                 `json:"crisis_detected"`
-	CrisisContact     string               `json:"crisis_contact,omitempty"`
-	AssignedExpertID  *uuid.UUID           `json:"assigned_expert_id"`
-	AssignedExpert    *string              `json:"assigned_expert"`
-	RejectionReason   *string              `json:"rejection_reason,omitempty"`
-	Recommendation    *string              `json:"recommendation,omitempty"`
-	ReturnCount       int                  `json:"return_count"`
-	TransferRequested bool                 `json:"transfer_requested"`
-	Version           int                  `json:"version"`
-	CreatedAt         string               `json:"created_at"`
-	UpdatedAt         string               `json:"updated_at"`
-	IntakeAnswers     []store.IntakeAnswer `json:"intake_answers"`
-	Attachments       []store.Attachment   `json:"attachments,omitempty"`
-	Participants      []store.Participant  `json:"participants,omitempty"`
-	// CategorySuggestion — подсказка системы по категории: считается
-	// по тексту и анкете, отдаётся только оператору.
-	CategorySuggestion *categorySuggestion `json:"category_suggestion,omitempty"`
-	// Routing — подсказка маршрутизации оператору: группа по правилу
-	// («категория → группа специалистов»), свободные исполнители
-	// с учётом лимита. Назначить можно любого — решение за человеком.
-	Routing *routingHint `json:"routing,omitempty"`
+	ID                 uuid.UUID            `json:"id"`
+	ApplicantType      domain.ApplicantType `json:"applicant_type"`
+	CategoryID         *uuid.UUID           `json:"category_id"`
+	CategoryName       *string              `json:"category_name"`
+	FreeTextMode       bool                 `json:"free_text_mode"`
+	Description        string               `json:"description"`
+	Status             domain.Status        `json:"status"`
+	Priority           domain.Priority      `json:"priority"`
+	CrisisDetected     bool                 `json:"crisis_detected"`
+	CrisisContact      string               `json:"crisis_contact,omitempty"`
+	AssignedExpertID   *uuid.UUID           `json:"assigned_expert_id"`
+	AssignedExpert     *string              `json:"assigned_expert"`
+	RejectionReason    *string              `json:"rejection_reason,omitempty"`
+	Recommendation     *string              `json:"recommendation,omitempty"`
+	ReturnCount        int                  `json:"return_count"`
+	TransferRequested  bool                 `json:"transfer_requested"`
+	Version            int                  `json:"version"`
+	CreatedAt          string               `json:"created_at"`
+	UpdatedAt          string               `json:"updated_at"`
+	IntakeAnswers      []store.IntakeAnswer `json:"intake_answers"`
+	Attachments        []store.Attachment   `json:"attachments,omitempty"`
+	Participants       []store.Participant  `json:"participants,omitempty"`
+	CategorySuggestion *categorySuggestion  `json:"category_suggestion,omitempty"`
+	Routing            *routingHint         `json:"routing,omitempty"`
 }
 
-// routingExpert — специалист группы с текущей нагрузкой.
 type routingExpert struct {
 	ID       string `json:"id"`
 	Login    string `json:"login"`
 	Active   int    `json:"active"`
-	Overload bool   `json:"overload"` // активных обращений не меньше лимита
+	Overload bool   `json:"overload"`
 }
 
-// routingHint — «по правилу это группа „…“, свободен такой-то».
 type routingHint struct {
 	Group         string          `json:"group"`
 	GroupRU       string          `json:"group_ru"`
 	Limit         int             `json:"limit"`
-	Experts       []routingExpert `json:"experts"` // группы, по возрастанию нагрузки
-	FreeLogin     string          `json:"free_login,omitempty"`      // рекомендуемый
-	LeastLoaded   string          `json:"least_loaded,omitempty"`    // если свободных нет
-	AllOverloaded bool            `json:"all_overloaded"`            // вся группа у лимита
-	NoExperts     bool            `json:"no_experts"`                // в группе нет активных
-	Source        string          `json:"source"`                    // category | suggestion
+	Experts       []routingExpert `json:"experts"`
+	FreeLogin     string          `json:"free_login,omitempty"`
+	LeastLoaded   string          `json:"least_loaded,omitempty"`
+	AllOverloaded bool            `json:"all_overloaded"`
+	NoExperts     bool            `json:"no_experts"`
+	Source        string          `json:"source"`
 }
 
 var groupRUTitles = map[string]string{
-	"psychologists":       "Психологи",
-	"conflictologists":    "Конфликтологи",
-	"lawyers":             "Юристы",
-	"social_pedagogues":   "Социальные педагоги",
-	"mediators":           "Медиаторы",
+	"psychologists":     "Психологи",
+	"conflictologists":  "Конфликтологи",
+	"lawyers":           "Юристы",
+	"social_pedagogues": "Социальные педагоги",
+	"mediators":         "Медиаторы",
 }
 
 func groupRU(g string) string {
@@ -82,9 +75,6 @@ func groupRU(g string) string {
 	return g
 }
 
-// buildRoutingHint — подсказка маршрутизации для оператора.
-// Группа берётся из назначенной категории; для свободного текста — из
-// подсказки системы по ключевым словам (потенциал: ML-классификация).
 func (s *Server) buildRoutingHint(ctx context.Context, a store.Appeal, sug *categorySuggestion) *routingHint {
 	group, source := "", ""
 	if a.CategoryID != nil {
@@ -126,7 +116,6 @@ func (s *Server) buildRoutingHint(ctx context.Context, a store.Appeal, sug *cate
 		h.NoExperts = true
 		return &h
 	}
-	// Наименее загруженный сверху; рекомендуемый — первый свободный.
 	sort.Slice(h.Experts, func(i, j int) bool {
 		if h.Experts[i].Active != h.Experts[j].Active {
 			return h.Experts[i].Active < h.Experts[j].Active
@@ -153,22 +142,17 @@ func (s *Server) staffAppeal(r *http.Request, a store.Appeal, p domain.Principal
 		AssignedExpertID: a.AssignedExpertID, AssignedExpert: a.AssignedExpert,
 		RejectionReason: a.RejectionReason, Recommendation: a.Recommendation,
 		ReturnCount: a.ReturnCount, TransferRequested: a.TransferRequested,
-		Version: a.Version,
+		Version:   a.Version,
 		CreatedAt: a.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: a.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 	}
-	// Администратор текст обращения и ответы анкеты не читает —
-	// он работает с метаданными, статусами и аналитикой.
 	if p.Role == domain.RoleAdmin {
 		resp.Description = ""
 	} else {
 		resp.IntakeAnswers, _ = s.st.ListIntakeAnswers(r.Context(), a.ID)
 		resp.Attachments, _ = s.st.ListAttachments(r.Context(), a.ID)
-		// Оператору в окне обработки — подсказка системы по категории.
 		if p.Role == domain.RoleOperator {
 			resp.CategorySuggestion = s.suggestCategory(r.Context(), a, resp.IntakeAnswers)
-			// Подсказка маршрутизации: группа по правилу и свободные
-			// исполнители с учётом лимита (решение о назначении — за оператором).
 			resp.Routing = s.buildRoutingHint(r.Context(), a, resp.CategorySuggestion)
 		}
 	}
@@ -179,8 +163,6 @@ func (s *Server) staffAppeal(r *http.Request, a store.Appeal, p domain.Principal
 	return resp
 }
 
-// loadAppealWithAccess проверяет право сотрудника на доступ к обращению:
-// оператор и админ — все; эксперт — только где он участник.
 func (s *Server) loadAppealWithAccess(r *http.Request, appealID uuid.UUID, p domain.Principal) (store.Appeal, error) {
 	a, err := s.st.GetAppealByID(r.Context(), appealID)
 	if err != nil {
@@ -229,8 +211,6 @@ func (s *Server) handleOperatorQueue(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"appeals": items})
 }
 
-// handleOperatorAppeals — все обращения с фильтром по статусу:
-// '' — любые, 'active' — незавершённые, иначе точный статус.
 func (s *Server) handleOperatorAppeals(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	items, err := s.st.ListOperatorAppeals(r.Context(), q.Get("status"))

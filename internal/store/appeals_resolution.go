@@ -9,7 +9,6 @@ import (
 	"otklik/internal/domain"
 )
 
-// PublishRecommendation публикует рекомендации и переводит в answer_ready.
 func (st *Store) PublishRecommendation(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, recommendation string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
@@ -30,9 +29,7 @@ func (st *Store) PublishRecommendation(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
-// RequestTransfer — ответственный эксперт запрашивает передачу.
-// В той же транзакции создаётся уведомление оператору: сигнал не может
-// потеряться или появиться «зря» — он атомарен с самим запросом.
+// RequestTransfer — запрос передачи; уведомление оператору создаётся в той же транзакции и атомарно с запросом.
 func (st *Store) RequestTransfer(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
@@ -54,7 +51,6 @@ func (st *Store) RequestTransfer(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
-// AddContributor — ответственный эксперт подключает соисполнителя.
 func (st *Store) AddContributor(ctx context.Context, appealID, expertID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role) error {
 	tx, err := st.DB.BeginTx(ctx, nil)
@@ -77,7 +73,6 @@ func (st *Store) AddContributor(ctx context.Context, appealID, expertID uuid.UUI
 	return tx.Commit()
 }
 
-// ApplicantResult — «Помогло» / «Не помогло» из статуса answer_ready.
 func (st *Store) ApplicantResult(ctx context.Context, appealID uuid.UUID,
 	helped bool, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {

@@ -1,11 +1,9 @@
-/* Дизайн-токены, сброс, типографика и формы.
    Остальные слои: components.css (виджеты), layout.css (каркас), responsive.css. */
 :root{
   --bg:#f3f4f6;--card:#fff;--ink:#1e2430;--mut:#6b7280;--acc:#2563eb;
   --ok:#16a34a;--bad:#dc2626;--line:#e5e7eb;--radius:14px;
   --safe-b:env(safe-area-inset-bottom,0px);
 }
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
 label{display:block;font-size:13.5px;color:var(--mut);margin:12px 0 5px;font-weight:600}

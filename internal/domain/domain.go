@@ -1,5 +1,3 @@
-// Package domain содержит общие доменные типы: роли, статусы,
-// машину состояний обращения и субъекта доступа (Principal).
 package domain
 
 import (
@@ -8,17 +6,15 @@ import (
 	"github.com/google/uuid"
 )
 
-// Роли субъектов системы.
 type Role string
 
 const (
-	RoleApplicant Role = "applicant" // анонимный заявитель (сессия по трек-номеру)
-	RoleOperator  Role = "operator"  // оператор
-	RoleExpert    Role = "expert"    // эксперт
-	RoleAdmin     Role = "admin"     // администратор
+	RoleApplicant Role = "applicant"
+	RoleOperator  Role = "operator"
+	RoleExpert    Role = "expert"
+	RoleAdmin     Role = "admin"
 )
 
-// Статусы обращения.
 type Status string
 
 const (
@@ -41,17 +37,15 @@ var allStatuses = map[Status]bool{
 
 func (s Status) Valid() bool { return allStatuses[s] }
 
-// Terminal — завершающие статусы: из них нет рабочих переходов.
 func (s Status) Terminal() bool {
 	return s == StatusCompleted || s == StatusRejected || s == StatusClosedNoResponse
 }
 
-// Transitions — централизованная машина состояний.
 var Transitions = map[Status]map[Status]bool{
 	StatusNew: {
 		StatusAssigned:  true,
 		StatusRejected:  true,
-		StatusCompleted: true, // оператор помог самостоятельно
+		StatusCompleted: true,
 	},
 	StatusAssigned: {
 		StatusInProgress: true,
@@ -61,13 +55,13 @@ var Transitions = map[Status]map[Status]bool{
 		StatusAnswerReady:        true,
 	},
 	StatusNeedsClarification: {
-		StatusInProgress:    true,
-		StatusClosedNoResponse: true, // заявитель не ответил
+		StatusInProgress:       true,
+		StatusClosedNoResponse: true,
 	},
 	StatusAnswerReady: {
-		StatusCompleted:       true,
-		StatusReturned:        true,
-		StatusClosedNoResponse: true, // заявитель не подтвердил результат
+		StatusCompleted:        true,
+		StatusReturned:         true,
+		StatusClosedNoResponse: true,
 	},
 	StatusReturned: {
 		StatusAssigned: true,
@@ -83,7 +77,6 @@ func CanTransition(from, to Status) bool {
 	return ok && allowed[to]
 }
 
-// Приоритет обращения.
 type Priority string
 
 const (
@@ -96,7 +89,6 @@ func (p Priority) Valid() bool {
 	return p == PriorityLow || p == PriorityNormal || p == PriorityUrgent
 }
 
-// Тип заявителя.
 type ApplicantType string
 
 const (
@@ -109,21 +101,19 @@ func (t ApplicantType) Valid() bool {
 	return t == ApplicantSchoolchild || t == ApplicantParent || t == ApplicantTeacher
 }
 
-// Principal — субъект доступа после аутентификации.
-// У заявителя нет аккаунта: после проверки трек-номера выдаётся
-// короткоживая сессия, привязанная ровно к одному обращению.
+// Principal — субъект доступа; у заявителя вместо аккаунта —
+// короткоживая сессия по трек-номеру, привязанная к одному обращению.
 type Principal struct {
 	Role     Role
-	UserID   uuid.UUID // для сотрудников
-	Login    string    // для сотрудников
-	AppealID uuid.UUID // только для заявителя
+	UserID   uuid.UUID
+	Login    string
+	AppealID uuid.UUID
 }
 
 func (p Principal) IsStaff() bool {
 	return p.Role == RoleOperator || p.Role == RoleExpert || p.Role == RoleAdmin
 }
 
-// Ошибки домена.
 var (
 	ErrUnauthorized = errors.New("unauthorized")
 	ErrForbidden    = errors.New("forbidden")
@@ -133,15 +123,11 @@ var (
 	ErrRateLimited  = errors.New("rate limited")
 )
 
-// IntakeQuestion — необязательный уточняющий вопрос анкеты с вариантами ответа.
 type IntakeQuestion struct {
 	Text    string   `json:"text"`
 	Options []string `json:"options"`
 }
 
-// IntakeQuestions — стартовый набор уточняющих вопросов: где происходит,
-// как давно, кто участвует, обращался ли кто-то уже. Формулировки нейтральны
-// к «ты»/«вы»: анкета одна на все типы заявителей.
 var IntakeQuestions = []IntakeQuestion{
 	{Text: "Где это происходит?", Options: []string{
 		"В школе", "В интернете или соцсетях", "И там, и там", "Другое место"}},
@@ -153,16 +139,10 @@ var IntakeQuestions = []IntakeQuestion{
 		"Нет, это первое обращение", "Да, говорили взрослым", "Да, уже обращались сюда"}},
 }
 
-// MaxAttachmentsPerAppeal — максимум вложений на обращение.
 const MaxAttachmentsPerAppeal = 5
 
-// MaxAttachmentSizeBytes — лимит одного файла.
-const MaxAttachmentSizeBytes = 10 << 20 // 10 МБ на файл
+const MaxAttachmentSizeBytes = 10 << 20
 
-// Пороги контроля SLA, в часах: обращение в очереди новых,
-// ждущее обработки дольше QueueOverdueHours, — просрочено; распределённое
-// обращение, где заявитель не получил ответа дольше ResponseOverdueHours,
-// считается зависшим.
 const (
 	QueueOverdueHours    = 24
 	ResponseOverdueHours = 24

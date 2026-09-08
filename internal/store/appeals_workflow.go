@@ -10,7 +10,6 @@ import (
 	"otklik/internal/domain"
 )
 
-// EventPayload — запись в универсальную историю обращений (аудит).
 type EventPayload struct {
 	AppealID  uuid.UUID
 	ActorID   *uuid.UUID
@@ -36,7 +35,6 @@ func addEvent(ctx context.Context, q interface {
 	return err
 }
 
-// withAppealLock выполняет fn под блокировкой строки обращения (FOR UPDATE).
 func (st *Store) withAppealLock(ctx context.Context, appealID uuid.UUID,
 	fn func(ctx context.Context, tx *sql.Tx, a Appeal) error) (Appeal, error) {
 	tx, err := st.DB.BeginTx(ctx, nil)
@@ -63,7 +61,6 @@ func (st *Store) withAppealLock(ctx context.Context, appealID uuid.UUID,
 	return st.GetAppealByID(ctx, appealID)
 }
 
-// TransitionStatus — транзакционный переход статуса с optimistic locking.
 func (st *Store) TransitionStatus(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, expectedFrom domain.Status,
 	to domain.Status, reason string) (Appeal, error) {
@@ -91,7 +88,6 @@ func (st *Store) TransitionStatus(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
-// SetPriority меняет приоритет и пишет событие (оператор или админ).
 func (st *Store) SetPriority(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, p domain.Priority, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
@@ -110,7 +106,6 @@ func (st *Store) SetPriority(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
-// SetCategory уточняет категорию (оператор или админ).
 func (st *Store) SetCategory(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, catID uuid.UUID, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {

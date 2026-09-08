@@ -1,5 +1,3 @@
-// Package httpapi — HTTP-слой: маршруты chi, аутентификация по сессионным
-// кукам и проекции данных для заявителей и сотрудников.
 package httpapi
 
 import (
@@ -25,10 +23,9 @@ import (
 const (
 	staffCookie     = "otklik_staff"
 	applicantCookie = "otklik_applicant"
-	maxBodySize     = 1 << 20 // 1 МБ для JSON-запросов
+	maxBodySize     = 1 << 20
 )
 
-// Server хранит конфигурацию, стор и простой in-memory rate limiter.
 type Server struct {
 	cfg      config.Config
 	st       *store.Store
@@ -36,7 +33,6 @@ type Server struct {
 	presence *presenceHub
 }
 
-// baseRouter — общий каркас маршрутизатора с базовыми middleware.
 func baseRouter() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -49,16 +45,12 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// New собирает маршрутизатор публичной части (порт заявителей):
-// создание обращений, вход по трек-номеру и сессия заявителя.
-// Маршруты сотрудников на этом порту недоступны в принципе.
 func New(cfg config.Config, st *store.Store) http.Handler {
 	s := &Server{cfg: cfg, st: st, rl: newRateLimiter(), presence: newPresenceHub()}
 
 	r := baseRouter()
-	r.Use(s.authMW(false, true)) // только сессии заявителей
+	r.Use(s.authMW(false, true))
 
-	// ---- Публичные маршруты ----
 	r.Get("/api/health", healthHandler)
 	r.Get("/", s.indexFor("applicant"))
 	r.Handle("/assets/*", assetsHandler())
@@ -70,12 +62,10 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 		writeJSON(w, http.StatusOK, map[string][]domain.CrisisHelp{"contacts": domain.CrisisHelpContacts})
 	})
 
-	// ---- Анонимный заявитель ----
 	r.Post("/api/appeals", s.handleCreateAppeal)
 	r.Post("/api/appeals/track", s.handleVerifyTrack)
 	r.Get("/api/me", s.handleMe)
 
-	// ---- Сессия заявителя (по трек-номеру) ----
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireApplicant)
 		r.Route("/api/appeals/me", func(r chi.Router) {
@@ -95,58 +85,44 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 	return r
 }
 
-// NewStaff собирает маршрутизатор служебной части (порт сотрудников):
-// аутентификация, очереди, панели оператора/эксперта/админа.
-// Маршруты заявителей на этом порту недоступны.
 func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 	s := &Server{cfg: cfg, st: st, rl: newRateLimiter(), presence: newPresenceHub()}
 
 	r := baseRouter()
-	r.Use(s.authMW(true, false)) // только сессии сотрудников (токен вкладки или кука)
+	r.Use(s.authMW(true, false))
 
-	// ---- Публичные маршруты ----
 	r.Get("/api/health", healthHandler)
 	r.Get("/", s.indexFor("staff"))
 	r.Handle("/assets/*", assetsHandler())
-	r.Get("/api/categories", s.handlePublicCategories) // нужно панели оператора
+	r.Get("/api/categories", s.handlePublicCategories)
 
-	// ---- Аутентификация сотрудников ----
 	r.Post("/api/auth/login", s.handleLogin)
 	r.Post("/api/auth/logout", s.handleLogout)
 	r.Get("/api/me", s.handleMe)
 
-	// ---- Общее для сотрудников: список активных экспертов ----
-	// Нужен и оператору (назначение эксперта), и эксперту (подключение
-	// коллеги-соисполнителя), и админу. Регистрировать этот путь
-	// внутри нескольких групп нельзя: в chi поздняя регистрация перекрывает
-	// раннюю, и оператор получает «insufficient permissions».
+	// Общая группа вне ролевых: в chi поздняя регистрация перекрывает раннюю.
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireRole(domain.RoleExpert, domain.RoleOperator, domain.RoleAdmin))
 		r.Get("/api/staff/experts", s.handleListExperts)
-		// Выгрузки: оператор и админ — по всем обращениям, эксперт — по себе.
 		r.Get("/api/export/appeals", s.handleExportAppeals)
 	})
 
-	// ---- Персональная аналитика ----
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireRole(domain.RoleOperator, domain.RoleExpert))
 		r.Get("/api/mystats", s.handleMyStats)
 	})
 
-	// ---- Оператор ----
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireRole(domain.RoleOperator, domain.RoleAdmin))
 		r.Get("/api/operator/queue", s.handleOperatorQueue)
 		r.Get("/api/operator/appeals", s.handleOperatorAppeals)
 	})
 
-	// ---- Эксперт ----
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireRole(domain.RoleExpert, domain.RoleAdmin))
 		r.Get("/api/expert/appeals", s.handleExpertAppeals)
 	})
 
-	// ---- Администратор ----
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireRole(domain.RoleAdmin))
 		r.Get("/api/admin/appeals", s.handleAdminAppeals)
@@ -161,7 +137,6 @@ func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 		r.Get("/api/admin/complaints", s.handleAdminComplaints)
 		r.Get("/api/admin/stats", s.handleAdminStats)
 	})
-	// ---- Обращение (сотрудники) ----
 	r.Route("/api/appeals/{appealID}", func(r chi.Router) {
 		r.Use(s.requireStaff)
 		r.Get("/", s.handleStaffGetAppeal)
@@ -170,8 +145,6 @@ func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 		r.Get("/notes", s.handleStaffNotes)
 		r.Post("/notes", s.handleStaffPostNote)
 		r.Get("/events", s.handleStaffEvents)
-		// Кто сейчас в карточке обращения и кто вводит ответ
-		// (защита от двойного ответа).
 		r.Get("/presence", s.handlePresenceGet)
 		r.Post("/presence", s.handlePresencePost)
 		r.Post("/attachments", s.handleUploadAttachment)
@@ -194,13 +167,10 @@ func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 	return r
 }
 
-// ---- Principal (субъект доступа) ----
-
 type principalCtxKey struct{}
 
-// authMW восстанавливает субъект доступа. Публичный порт (заявители) слушает
-// только куки заявителей, служебный — только сессии сотрудников: токен вкладки
-// (Authorization: Bearer) или куку сотрудника.
+// Публичный порт слушает только куки заявителей, служебный — только сессии
+// сотрудников (Bearer-токен вкладки или кука).
 func (s *Server) authMW(allowStaff, allowApplicant bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -294,8 +264,6 @@ func (s *Server) requireRole(roles ...domain.Role) func(http.Handler) http.Handl
 	}
 }
 
-// ---- Простые in-memory rate limits ----
-
 type rateLimiter struct {
 	mu   sync.Mutex
 	hits map[string][]time.Time
@@ -315,8 +283,6 @@ func (rl *rateLimiter) allow(key string, n int, window time.Duration) bool {
 			kept = append(kept, t)
 		}
 	}
-	// Истёкшие ключи удаляем целиком: одноразовые посетители не должны
-	// бесконечно копиться в памяти.
 	if len(kept) == 0 {
 		delete(rl.hits, key)
 	}
@@ -328,9 +294,8 @@ func (rl *rateLimiter) allow(key string, n int, window time.Duration) bool {
 	return true
 }
 
-// reset очищает счётчик ключа. Вызывается после успешной аутентификации:
-// тот, кто предъявил верный секрет, — легитимный владелец, и прошлые
-// опечатки не должны держать его в блокировке.
+// reset вызывается после успешной аутентификации: прошлые опечатки
+// не должны держать легитимного владельца в блокировке.
 func (rl *rateLimiter) reset(key string) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -345,8 +310,6 @@ func clientIP(r *http.Request) string {
 	return host
 }
 
-// ---- Вспомогательные функции ----
-
 type errorResp struct {
 	Error string `json:"error"`
 }
@@ -357,7 +320,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// writeErr отображает доменные ошибки в HTTP-коды.
 func writeErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, domain.ErrUnauthorized):
@@ -391,4 +353,3 @@ func parseUUID(s string) (uuid.UUID, bool) {
 	id, err := uuid.Parse(strings.TrimSpace(s))
 	return id, err == nil
 }
-

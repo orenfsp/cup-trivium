@@ -1,5 +1,3 @@
-// Панель администратора: все обращения, управление пользователями,
-// справочник категорий и жалобы на специалистов.
 import { $, esc, fmtTime, badge, toast } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { ruStatus, ruRole, ruGroup } from '../core/i18n.js';
@@ -8,7 +6,6 @@ import { loadCategories } from '../categories.js';
 
 const shortId = (s) => (s ? String(s).slice(0, 8) : '—');
 
-// Аналитика для администратора: объёмы, нагрузка, среднее время решения.
 export async function loadStats() {
   try {
     const s = await api('GET', '/api/admin/stats');
@@ -42,7 +39,6 @@ export async function loadAdminAppeals() {
   } catch (e) { $('adAppeals').innerHTML = '<div class="note">' + esc(e.message) + '</div>'; }
 }
 
-// Лимит активных обращений на специалиста — рамка маршрутизации.
 export async function loadAdminSettings() {
   try {
     const s = await api('GET', '/api/admin/settings');

@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Participant — строка участников обращения (ответственный / соисполнитель).
 type Participant struct {
 	ExpertID        uuid.UUID `json:"expert_id"`
 	ExpertLogin     string    `json:"expert_login"`

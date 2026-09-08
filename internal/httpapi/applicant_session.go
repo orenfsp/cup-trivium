@@ -11,8 +11,6 @@ import (
 	"otklik/internal/store"
 )
 
-// applicantAppealResp — проекция обращения для заявителя: без причин отказов,
-// имен сотрудников, заметок и событий аудита.
 type applicantAppealResp struct {
 	ID                uuid.UUID                 `json:"id"`
 	Status            domain.Status             `json:"status"`
@@ -47,10 +45,10 @@ func (s *Server) writeApplicantView(w http.ResponseWriter, r *http.Request, appe
 		StatusExplanation: a.Status.ExplanationFor(a.ApplicantType),
 		ApplicantType:     a.ApplicantType,
 		Description:       a.Description,
-		CategoryName: a.CategoryName, Recommendation: a.Recommendation,
-		ReturnCount: a.ReturnCount,
-		CreatedAt:   a.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt:   a.UpdatedAt.UTC().Format(time.RFC3339),
+		CategoryName:      a.CategoryName, Recommendation: a.Recommendation,
+		ReturnCount:   a.ReturnCount,
+		CreatedAt:     a.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:     a.UpdatedAt.UTC().Format(time.RFC3339),
 		IntakeAnswers: answers, StatusHistory: history,
 		Messages: messages, Attachments: attachments,
 	}
@@ -110,9 +108,6 @@ type appendReq struct {
 	Text string `json:"text"`
 }
 
-// handleApplicantAppend — дописывание обращения после отправки: текст
-// добавляется к описанию, факт фиксируется в аудите, кризисные маркеры
-// в дополнении тоже проверяются.
 func (s *Server) handleApplicantAppend(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 	var req appendReq

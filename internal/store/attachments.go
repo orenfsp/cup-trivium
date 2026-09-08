@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Attachment — метаданные очищенного вложения (без имени исходного файла).
 type Attachment struct {
 	ID          uuid.UUID `json:"id"`
 	AppealID    uuid.UUID `json:"appeal_id"`
@@ -29,7 +28,6 @@ func (st *Store) CreateAttachment(ctx context.Context, appealID uuid.UUID,
 	return a, err
 }
 
-// GetAttachment проверяет принадлежность вложения обращению (anti-IDOR).
 func (st *Store) GetAttachment(ctx context.Context, appealID, attachmentID uuid.UUID) (Attachment, error) {
 	row := st.DB.QueryRowContext(ctx, `
 		SELECT id, appeal_id, storage_name, content_type, size, created_at

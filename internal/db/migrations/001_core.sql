@@ -1,5 +1,3 @@
--- РЎС…РµРјР° Р‘Р” В«РћС‚РєР»РёРєВ» (MVP). Р§Р°СЃС‚СЊ 1: РїРѕР»СЊР·РѕРІР°С‚РµР»Рё, СЃРµСЃСЃРёРё, СЃРїСЂР°РІРѕС‡РЅРёРєРё.
--- Р’СЃРµ РґР°С‚С‹ вЂ” TIMESTAMPTZ (UTC).
 
 CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,
@@ -26,7 +24,6 @@ CREATE TABLE IF NOT EXISTS staff_sessions (
 );
 CREATE INDEX IF NOT EXISTS staff_sessions_user_idx ON staff_sessions (user_id);
 
--- РђРЅРѕРЅРёРјРЅР°СЏ СЃРµСЃСЃРёСЏ Р·Р°СЏРІРёС‚РµР»СЏ: РїСЂРёРІСЏР·Р°РЅР° СЂРѕРІРЅРѕ Рє РѕРґРЅРѕРјСѓ РѕР±СЂР°С‰РµРЅРёСЋ.
 CREATE TABLE IF NOT EXISTS applicant_sessions (
     token_hash TEXT PRIMARY KEY,
     appeal_id  UUID NOT NULL,

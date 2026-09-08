@@ -9,12 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// Message — публичное сообщение чата (заявитель <-> специалист от лица сервиса).
-// Имя автора заявителю не раскрывается — только роль.
 type Message struct {
 	ID         uuid.UUID `json:"id"`
 	AppealID   uuid.UUID `json:"-"`
-	AuthorType string    `json:"author_type"` // applicant | expert | operator
+	AuthorType string    `json:"author_type"`
 	Text       string    `json:"text"`
 	CreatedAt  time.Time `json:"created_at"`
 }
@@ -38,7 +36,6 @@ func (st *Store) CreateMessage(ctx context.Context, appealID uuid.UUID,
 	return m, err
 }
 
-
 func (st *Store) ListMessages(ctx context.Context, appealID uuid.UUID) ([]Message, error) {
 	rows, err := st.DB.QueryContext(ctx, `
 		SELECT id, appeal_id, author_type, text, created_at
@@ -58,14 +55,13 @@ func (st *Store) ListMessages(ctx context.Context, appealID uuid.UUID) ([]Messag
 	return out, rows.Err()
 }
 
-// InternalNote — внутренняя заметка (физически отдельная таблица).
 type InternalNote struct {
-	ID         uuid.UUID `json:"id"`
-	AppealID   uuid.UUID `json:"-"`
-	AuthorID   uuid.UUID `json:"author_id"`
-	AuthorLogin string   `json:"author_login"`
-	Text       string    `json:"text"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	AppealID    uuid.UUID `json:"-"`
+	AuthorID    uuid.UUID `json:"author_id"`
+	AuthorLogin string    `json:"author_login"`
+	Text        string    `json:"text"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 func (st *Store) CreateNote(ctx context.Context, appealID, authorID uuid.UUID, text string) (InternalNote, error) {
@@ -99,8 +95,6 @@ func (st *Store) ListNotes(ctx context.Context, appealID uuid.UUID) ([]InternalN
 	return out, rows.Err()
 }
 
-// ---- Оценка ----
-
 type Feedback struct {
 	Helped  *bool   `json:"helped"`
 	Rating  *int    `json:"rating"`
@@ -116,8 +110,6 @@ func (st *Store) UpsertFeedback(ctx context.Context, appealID uuid.UUID, rating 
 	return err
 }
 
-// ---- Кризисный контакт (отдельно защищённые данные) ----
-
 func (st *Store) GetCrisisContact(ctx context.Context, appealID uuid.UUID) (string, error) {
 	var contact string
 	err := st.DB.QueryRowContext(ctx,
@@ -127,8 +119,6 @@ func (st *Store) GetCrisisContact(ctx context.Context, appealID uuid.UUID) (stri
 	}
 	return contact, err
 }
-
-// ---- Жалоба на специалиста ----
 
 func (st *Store) CreateComplaint(ctx context.Context, appealID uuid.UUID, text string) error {
 	_, err := st.DB.ExecContext(ctx,

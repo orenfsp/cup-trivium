@@ -10,11 +10,7 @@ import (
 	"otklik/internal/domain"
 )
 
-// Лёгкое in-memory присутствие: кто из сотрудников сейчас держит открытой
-// карточку обращения и кто вводит ответ заявителю. Клиент шлёт heartbeat
-// (POST /presence, поле typing) раз в несколько секунд; записи старше TTL
-// считаются ушедшими. Этого достаточно для одиночного инстанса приложения;
-// при горизонтальном масштабировании хаб переезжает в Redis.
+// Лёгкое in-memory присутствие: heartbeat + TTL; достаточно для одиночного инстанса.
 
 type presenceEntry struct {
 	login    string
@@ -56,7 +52,6 @@ func (h *presenceHub) touch(appealID, userID uuid.UUID, login string, role domai
 	h.gcLocked()
 }
 
-// list — активные в карточке, кроме самого спрашивающего.
 func (h *presenceHub) list(appealID, exceptUser uuid.UUID) []map[string]any {
 	h.mu.Lock()
 	defer h.mu.Unlock()

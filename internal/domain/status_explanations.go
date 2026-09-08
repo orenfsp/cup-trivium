@@ -1,7 +1,5 @@
 package domain
 
-// ExplanationFor возвращает понятное заявителю объяснение статуса.
-// Школьнику — на «ты», родителю и педагогу — на «вы».
 func (s Status) ExplanationFor(t ApplicantType) string {
 	informal := map[Status]string{
 		StatusNew:                "Мы получили твоё обращение. Оно в очереди и скоро попадёт к оператору.",

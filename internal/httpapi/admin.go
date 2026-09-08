@@ -10,7 +10,6 @@ import (
 	"otklik/internal/domain"
 )
 
-// expertWithLoad — специалист с текущей нагрузкой и лимитом.
 type expertWithLoad struct {
 	ID              string `json:"id"`
 	Login           string `json:"login"`
@@ -19,8 +18,6 @@ type expertWithLoad struct {
 	Limit           int    `json:"limit"`
 }
 
-// handleListExperts — активные эксперты для назначения с нагрузкой
-// (оператор/админ): «свободен такой-то» в подсказке маршрутизации.
 func (s *Server) handleListExperts(w http.ResponseWriter, r *http.Request) {
 	users, err := s.st.ListUsers(r.Context())
 	if err != nil {
@@ -49,7 +46,6 @@ func (s *Server) handleListExperts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"experts": experts})
 }
 
-// handleAdminGetSettings — настройки маршрутизации для администратора.
 func (s *Server) handleAdminGetSettings(w http.ResponseWriter, r *http.Request) {
 	set, err := s.st.GetSettings(r.Context())
 	if err != nil {
@@ -63,8 +59,6 @@ type updateSettingsReq struct {
 	ExpertActiveLimit *int `json:"expert_active_limit"`
 }
 
-// handleAdminUpdateSettings — администратор меняет лимит активных
-// обращений на специалиста. Действует сразу: подсказки пересчитываются.
 func (s *Server) handleAdminUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	var req updateSettingsReq
 	if !decodeJSON(w, r, &req) {

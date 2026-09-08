@@ -1,7 +1,3 @@
-// Русские подписи для системных значений (API отдаёт их на английском).
-// Каждый словарь — перечисление + функция- accessor с fallback на исходное
-// значение, чтобы новое значение API не ломало UI.
-
 const RU_STATUS = { new: 'новое', assigned: 'назначено', in_progress: 'в работе', needs_clarification: 'нужны уточнения', answer_ready: 'готов ответ', completed: 'завершено', returned: 'возвращено', rejected: 'отклонено', closed_no_response: 'закрыто без ответа' };
 const RU_PRIO = { low: 'низкий', normal: 'обычный', urgent: 'срочный' };
 const RU_ROLE = { applicant: 'заявитель', operator: 'оператор', expert: 'специалист', admin: 'администратор' };

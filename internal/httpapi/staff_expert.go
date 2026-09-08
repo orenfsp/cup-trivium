@@ -8,9 +8,6 @@ import (
 	"otklik/internal/domain"
 )
 
-// requireResponsible проверяет, что действует ответственный эксперт:
-// рабочий статус, запрос передачи и соисполнители — действия только
-// специалиста; у оператора и администратора свои эндпоинты.
 func (s *Server) requireResponsible(w http.ResponseWriter, r *http.Request, id uuid.UUID, p domain.Principal) bool {
 	if p.Role != domain.RoleExpert {
 		writeJSON(w, http.StatusForbidden, errorResp{"this action is available to expert only"})
@@ -28,7 +25,6 @@ func (s *Server) requireResponsible(w http.ResponseWriter, r *http.Request, id u
 	return true
 }
 
-// handleTakeInProgress — assigned -> in_progress.
 func (s *Server) handleTakeInProgress(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 	id, ok := s.appealID(w, r)
@@ -47,7 +43,6 @@ func (s *Server) handleTakeInProgress(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.staffAppeal(r, a, p))
 }
 
-// handleClarify — in_progress -> needs_clarification.
 func (s *Server) handleClarify(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 	id, ok := s.appealID(w, r)
@@ -116,8 +111,6 @@ func (s *Server) handleRequestTransfer(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.staffAppeal(r, a, p))
 }
 
-// handleCloseNoResponse — закрытие из-за отсутствия ответа заявителя
-// (допустимо из needs_clarification и answer_ready). Закрывает только оператор.
 func (s *Server) handleCloseNoResponse(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 	if p.Role != domain.RoleOperator {

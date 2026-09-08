@@ -1,6 +1,3 @@
-// Вход/выход сотрудника. Сессия — токен вкладки (sessionStorage) либо кука;
-// за дальнейшую сборку панелей отвечает оркестратор (staff/index.js),
-// поэтому модуль получает хуки afterLogin/afterLogout через init.
 import { $, showErr, hideErr } from '../core/dom.js';
 import { api, setStaffToken, clearStaffToken } from '../core/api.js';
 import { registerActions } from '../core/actions.js';
@@ -19,9 +16,6 @@ export async function login() {
       login: $('stLogin').value.trim(),
       password: $('stPass').value
     });
-    // Токен сохраняем в sessionStorage — он уникален для каждой вкладки,
-    // поэтому в соседних вкладках можно параллельно работать под другими
-    // сотрудниками.
     if (me.session_token) setStaffToken(me.session_token);
     staffState.me = me;
     if (hooks.afterLogin) await hooks.afterLogin();

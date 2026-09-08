@@ -1,4 +1,3 @@
-// cmd/server — точка входа: конфиг, миграции, seed и HTTP-сервер.
 package main
 
 import (
@@ -41,7 +40,6 @@ func main() {
 
 	st := store.New(d)
 
-	// Два HTTP-сервера: публичный (заявители) и служебный (сотрудники).
 	publicSrv := &http.Server{
 		Addr:              cfg.ListenAddr,
 		Handler:           httpapi.New(cfg, st),

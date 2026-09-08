@@ -135,9 +135,6 @@ func (s *Server) handleSetPriority(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.staffAppeal(r, a, p))
 }
 
-// handleReturnForRework — возврат на доработку (только оператор):
-// answer_ready -> returned: результат не принят, обращение вернулось к
-// оператору для переназначения; счётчик возвратов увеличивается.
 func (s *Server) handleReturnForRework(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 	if p.Role != domain.RoleOperator {

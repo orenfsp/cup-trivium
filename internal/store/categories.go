@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Category — управляемый справочник категорий.
 type Category struct {
 	ID              uuid.UUID `json:"id"`
 	Name            string    `json:"name"`
@@ -28,7 +27,6 @@ func (st *Store) CreateCategory(ctx context.Context, name, group string, freeFor
 	return c, err
 }
 
-// ListCategoriesPublic — только активные (для заявителей).
 func (st *Store) ListCategoriesPublic(ctx context.Context) ([]Category, error) {
 	return st.listCategories(ctx, true)
 }

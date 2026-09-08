@@ -11,7 +11,6 @@ import (
 	"otklik/internal/domain"
 )
 
-// Appeal — обращение и его метаданные.
 type Appeal struct {
 	ID                uuid.UUID
 	TrackHash         string
@@ -24,7 +23,7 @@ type Appeal struct {
 	Priority          domain.Priority
 	CrisisDetected    bool
 	AssignedExpertID  *uuid.UUID
-	AssignedExpert    *string // login эксперта (для staff-проекций)
+	AssignedExpert    *string
 	RejectionReason   *string
 	Recommendation    *string
 	ReturnCount       int
@@ -60,7 +59,6 @@ func (st *Store) GetAppealByID(ctx context.Context, id uuid.UUID) (Appeal, error
 	return a, err
 }
 
-// FindAppealIDByTrackHash ищет обращение по хешу трек-номера.
 func (st *Store) FindAppealIDByTrackHash(ctx context.Context, hash string) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := st.DB.QueryRowContext(ctx,
@@ -71,7 +69,6 @@ func (st *Store) FindAppealIDByTrackHash(ctx context.Context, hash string) (uuid
 	return id, err
 }
 
-// CreateAppealParams — данные для создания обращения.
 type CreateAppealParams struct {
 	TrackHash      string
 	ApplicantType  domain.ApplicantType
@@ -79,7 +76,7 @@ type CreateAppealParams struct {
 	FreeTextMode   bool
 	Description    string
 	CrisisDetected bool
-	CrisisContact  string // опционально, хранится отдельно
+	CrisisContact  string
 	IdempotencyKey string
 	Answers        []IntakeAnswer
 }
@@ -89,9 +86,7 @@ type IntakeAnswer struct {
 	Answer   string
 }
 
-// CreateAppeal создаёт обращение транзакционно вместе с ответами анкеты
-// и кризисным контактом. Повторная отправка с тем же idempotency key
-// возвращает уже существующее обращение (дубликат не создаётся).
+// CreateAppeal создаёт обращение транзакционно; повтор с тем же idempotency key возвращает существующее.
 func (st *Store) CreateAppeal(ctx context.Context, p CreateAppealParams) (Appeal, error) {
 	if p.IdempotencyKey != "" {
 		var existing uuid.UUID
@@ -154,8 +149,6 @@ func (st *Store) CreateAppeal(ctx context.Context, p CreateAppealParams) (Appeal
 	return st.GetAppealByID(ctx, id)
 }
 
-// AppendDescription дописывает текст к описанию обращения от заявителя
-// и фиксирует событие аудита. Терминальные обращения менять нельзя.
 func (st *Store) AppendDescription(ctx context.Context, appealID uuid.UUID,
 	addition string, crisisHit bool) (Appeal, error) {
 	tag := time.Now().UTC().Format("02.01.2006 15:04")
@@ -173,8 +166,6 @@ func (st *Store) AppendDescription(ctx context.Context, appealID uuid.UUID,
 	if err != nil {
 		return Appeal{}, err
 	}
-	// Событие аудита: без текста дополнения — только факт, что обращение
-	// было дополнено заявителем.
 	if _, err := st.DB.ExecContext(ctx,
 		`INSERT INTO appeal_events (appeal_id, actor_role, event_type)
 		 VALUES ($1, 'applicant', 'append')`, id); err != nil {

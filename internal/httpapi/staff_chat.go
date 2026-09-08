@@ -7,13 +7,8 @@ import (
 	"otklik/internal/domain"
 )
 
-// ---- Чат, заметки и события (сотрудники) ----
-
 func (s *Server) handleStaffMessages(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
-	// Переписка заявителя с экспертом доступна только эксперту:
-	// оператор видит лишь исходный текст обращения, администратор
-	// в переписке не участвует и доступа к ней не имеет.
 	if p.Role == domain.RoleOperator || p.Role == domain.RoleAdmin {
 		writeJSON(w, http.StatusForbidden, errorResp{"chat is available to expert only"})
 		return
@@ -36,8 +31,6 @@ func (s *Server) handleStaffMessages(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleStaffPostMessage(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
-	// После назначения обращение ведёт эксперт; оператор и администратор
-	// в чат не пишут.
 	if p.Role == domain.RoleOperator || p.Role == domain.RoleAdmin {
 		writeJSON(w, http.StatusForbidden, errorResp{"chat is available to expert only"})
 		return
@@ -81,8 +74,6 @@ type noteReq struct {
 
 func (s *Server) handleStaffNotes(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
-	// Заметки видны участникам обращения и оператору (только чтение),
-	// но никогда — заявителю; администратору они закрыты.
 	if p.Role == domain.RoleAdmin {
 		writeJSON(w, http.StatusForbidden, errorResp{"notes are not available to admin"})
 		return
@@ -109,7 +100,6 @@ func (s *Server) handleStaffPostNote(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Заметки пишут специалисты-участники; оператор читает, но не пишет.
 	if p.Role != domain.RoleExpert {
 		writeJSON(w, http.StatusForbidden, errorResp{"notes are available to expert only"})
 		return

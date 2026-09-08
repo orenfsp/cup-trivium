@@ -8,12 +8,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// DefaultExpertActiveLimit — лимит активных обращений на специалиста,
-// пока администратор не задал иное.
 const DefaultExpertActiveLimit = 5
 
-// Settings — настройки маршрутизации, задаёт администратор.
-// Лимит мягкий: подсказка и предупреждение оператору, назначение — за человеком.
 type Settings struct {
 	ExpertActiveLimit int `json:"expert_active_limit"`
 }
@@ -33,7 +29,6 @@ func (st *Store) GetSettings(ctx context.Context) (Settings, error) {
 	return s, nil
 }
 
-// SetExpertActiveLimit обновляет лимит активных обращений на специалиста.
 func (st *Store) SetExpertActiveLimit(ctx context.Context, limit int) error {
 	_, err := st.DB.ExecContext(ctx, `
 		INSERT INTO settings (key, value, updated_at)
@@ -43,8 +38,6 @@ func (st *Store) SetExpertActiveLimit(ctx context.Context, limit int) error {
 	return err
 }
 
-// ExpertLoad — число активных обращений (assigned, in_progress,
-// needs_clarification, answer_ready) по каждому специалисту.
 func (st *Store) ExpertLoad(ctx context.Context) (map[uuid.UUID]int, error) {
 	rows, err := st.DB.QueryContext(ctx, `
 		SELECT assigned_expert_id, count(*)

@@ -19,14 +19,11 @@ import (
 	"otklik/internal/domain"
 )
 
-// ---- Вложения (общее для заявителя и сотрудников) ----
-
 var allowedContentTypes = map[string]bool{
 	"image/jpeg": true, "image/png": true, "image/gif": true,
 	"image/webp": true, "application/pdf": true, "text/plain": true,
 }
 
-// appealIDFrom определяет обращение из сессии заявителя или из URL (staff).
 func (s *Server) appealIDFrom(r *http.Request, p domain.Principal) (uuid.UUID, bool) {
 	if p.Role == domain.RoleApplicant {
 		return p.AppealID, true
@@ -46,7 +43,6 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusBadRequest, errorResp{"appeal id is invalid"})
 		return
 	}
-	// Проверка прав: эксперт — только участник обращения, как в чате и заметках.
 	a, err := s.loadAppealWithAccess(r, appealID, p)
 	if err != nil {
 		writeErr(w, err)
@@ -87,8 +83,6 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusUnsupportedMediaType, errorResp{"content type is not allowed"})
 		return
 	}
-	// EXIF и геолокацию вырезаем на сервере: фотографии перекодируются
-	// из чистого пиксельного буфера.
 	data = stripImageMetadata(data, detected)
 
 	storageName := uuid.NewString() + ".bin"
@@ -121,7 +115,6 @@ func (s *Server) handleDownloadAttachment(w http.ResponseWriter, r *http.Request
 		writeJSON(w, http.StatusBadRequest, errorResp{"attachment id is invalid"})
 		return
 	}
-	// Проверка прав: эксперт — только участник обращения, как в чате и заметках.
 	if _, err := s.loadAppealWithAccess(r, appealID, p); err != nil {
 		writeErr(w, err)
 		return
@@ -147,9 +140,7 @@ func (s *Server) handleDownloadAttachment(w http.ResponseWriter, r *http.Request
 	_, _ = w.Write(data)
 }
 
-// stripImageMetadata перекодирует JPEG/PNG из чистого пиксельного буфера:
-// EXIF-сегменты (включая GPS-координаты съёмки) и прочие метаданные
-// гарантированно не попадают в хранилище.
+// Перекодировка из пиксельного буфера: EXIF (включая GPS) не попадает в хранилище.
 func stripImageMetadata(data []byte, contentType string) []byte {
 	if contentType != "image/jpeg" && contentType != "image/png" {
 		return data // gif/webp/pdf/txt без EXIF-геолокации не перекодируем

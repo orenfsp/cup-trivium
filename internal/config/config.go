@@ -1,4 +1,3 @@
-// Package config читает конфигурацию из окружения с безопасными дефолтами.
 package config
 
 import (
@@ -8,13 +7,13 @@ import (
 )
 
 type Config struct {
-	ListenAddr     string
+	ListenAddr      string
 	StaffListenAddr string
-	DatabaseURL    string
-	AttachmentsDir string
-	CookieSecure   bool
-	SessionTTL     time.Duration
-	SeedDefaultPwd string
+	DatabaseURL     string
+	AttachmentsDir  string
+	CookieSecure    bool
+	SessionTTL      time.Duration
+	SeedDefaultPwd  string
 }
 
 func env(key, def string) string {

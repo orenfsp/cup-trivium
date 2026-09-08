@@ -1,6 +1,3 @@
-// Трек-номер — единственный ключ доступа к анонимному обращению.
-// Здесь всё, что помогает заявителю его не потерять: сохранение в браузере,
-// копирование в буфер, текстовый файл-памятка, QR-код и вход по номеру.
 import { $, esc, fmtTime, toast, showErr, hideErr } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { registerActions } from '../core/actions.js';
@@ -9,7 +6,6 @@ import { t } from './tone.js';
 
 let lastTrack = '';
 
-/** Запомнить только что выданный номер (для кнопок копирования/скачивания). */
 export const rememberTrack = (t) => { lastTrack = t; };
 
 const trackURL = (t) => location.origin + '/?track=' + encodeURIComponent(t);
@@ -31,7 +27,6 @@ function copyTrack() {
   } else fallbackCopy(t, done);
 }
 
-// Запасной путь для старых браузеров/небезопасного контекста без clipboard API.
 function fallbackCopy(t, done) {
   const ta = document.createElement('textarea');
   ta.value = t;
