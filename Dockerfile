@@ -1,4 +1,4 @@
-# ---- Сборка (зависимости уже в vendor/, доступ к сети не нужен) ----
+# ---- Сборка ----
 FROM golang:1.24-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
