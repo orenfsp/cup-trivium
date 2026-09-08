@@ -14,12 +14,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-//go:embed migrations/*.sql
 var migrationsFS embed.FS
 
 
 
-// Open открывает пул соединений и проверяет его доступность.
 func Open(ctx context.Context, databaseURL string) (*sql.DB, error) {
 	d, err := sql.Open("pgx", databaseURL)
 	if err != nil {
@@ -34,7 +32,7 @@ func Open(ctx context.Context, databaseURL string) (*sql.DB, error) {
 	return d, nil
 }
 
-// Migrate применяет все встроенные SQL-миграции (идемпотентные).
+// Migrate применяет все встроенные SQL-миграции.
 func Migrate(ctx context.Context, d *sql.DB) error {
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
@@ -58,8 +56,6 @@ func Migrate(ctx context.Context, d *sql.DB) error {
 	return nil
 }
 
-// splitStatements делит SQL-файл на отдельные выражения.
-// Допустимо, так как миграции не содержат функций с «;» внутри.
 func splitStatements(s string) []string {
 	var out []string
 	for _, part := range strings.Split(s, ";") {
