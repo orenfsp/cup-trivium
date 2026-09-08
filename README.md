@@ -1,6 +1,6 @@
 ## Требования
 
-- [Docker](https://docs.docker.com/get-docker/) с Docker Compose (входит в
+- Docker Compose (входит в
   Docker Desktop для Windows/macOS; в Linux — пакет `docker-compose-plugin`).
 - Больше ничего не нужно: Go-зависимости лежат в `vendor/`, образы стянутся
   сами при первом запуске.
