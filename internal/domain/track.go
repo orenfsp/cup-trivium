@@ -11,8 +11,6 @@ import (
 // trackAlphabet — алфавит без похожих символов (0, O, 1, I, l).
 const trackAlphabet = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"
 
-// GenerateTrackNumber создаёт трек-номер вида ОТК-X7KD-R9MF-Q3HP
-// (12 значащих символов) криптографически стойким генератором.
 func GenerateTrackNumber() (string, error) {
 	buf := make([]byte, 12)
 	if _, err := rand.Read(buf); err != nil {
