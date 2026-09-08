@@ -2,7 +2,7 @@ package domain
 
 import "strings"
 
-// CrisisMarkers — словарь кризисных маркеров (P0-эвристика, не ML).
+// CrisisMarkers — словарь кризисных маркеров
 var CrisisMarkers = []string{
 	"убить", "убью", "убива", "суицид", "самоубийств", "не хочу жить",
 	"покончить с собой", "покончила с собой", "всё надоело", "устал жить",
@@ -19,8 +19,7 @@ func normalizeCrisisText(s string) string {
 	return s
 }
 
-// DetectCrisis проверяет текст обращения и ответы анкеты по словарю.
-// Результат — только флаг внимания; приоритет «срочно» выставляет оператор.
+
 func DetectCrisis(texts ...string) bool {
 	for _, raw := range texts {
 		t := normalizeCrisisText(raw)
@@ -36,14 +35,14 @@ func DetectCrisis(texts ...string) bool {
 	return false
 }
 
-// CrisisHelp — контакт экстренной помощи, показываемый заявителю.
+
 type CrisisHelp struct {
 	Title       string `json:"title"`
 	Phone       string `json:"phone"`
 	Description string `json:"description"`
 }
 
-// CrisisHelpContacts — перечень реальных российских контактов экстренной помощи.
+
 var CrisisHelpContacts = []CrisisHelp{
 	{
 		Title:       "Детский телефон доверия (бесплатно, круглосуточно, анонимно)",
