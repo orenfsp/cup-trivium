@@ -60,7 +60,6 @@ func (st *Store) GetAppealByID(ctx context.Context, id uuid.UUID) (Appeal, error
 	return a, err
 }
 
-// FindAppealIDByTrackHash ищет обращение по хешу трек-номера.
 func (st *Store) FindAppealIDByTrackHash(ctx context.Context, hash string) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := st.DB.QueryRowContext(ctx,
@@ -155,8 +154,8 @@ func (st *Store) CreateAppeal(ctx context.Context, p CreateAppealParams) (Appeal
 }
 
 // AppendDescription дописывает текст к описанию обращения от заявителя
-// (ТЗ п.3: заявитель может дополнить обращение после отправки) и фиксирует
-// событие аудита. Терминальные обращения менять нельзя.
+// (заявитель может дополнить обращение после отправки) и фиксирует
+// событие аудита.
 func (st *Store) AppendDescription(ctx context.Context, appealID uuid.UUID,
 	addition string, crisisHit bool) (Appeal, error) {
 	tag := time.Now().UTC().Format("02.01.2006 15:04")
@@ -174,8 +173,7 @@ func (st *Store) AppendDescription(ctx context.Context, appealID uuid.UUID,
 	if err != nil {
 		return Appeal{}, err
 	}
-	// Событие аудита: без текста дополнения — только факт, что обращение
-	// было дополнено заявителем.
+
 	if _, err := st.DB.ExecContext(ctx,
 		`INSERT INTO appeal_events (appeal_id, actor_role, event_type)
 		 VALUES ($1, 'applicant', 'append')`, id); err != nil {
