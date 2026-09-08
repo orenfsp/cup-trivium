@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Отклик</title>
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/layout.css">
+<link rel="stylesheet" href="/assets/css/responsive.css">
+</head>
+<body>
+<script>
+// Режим подставляется сервером при отдаче страницы: "applicant" — публичный
+// порт (заявители), "staff" — служебный порт (сотрудники). Класс режима
+// вешается на body до первой отрисовки, чтобы чужой раздел не мигал.
+window.UI_MODE = "__OTKLIK_UI_MODE__" === "staff" ? "staff" : "applicant";
+document.body.classList.add(window.UI_MODE + "-mode");
+document.title = window.UI_MODE === "staff" ? "Отклик — панель сотрудника" : "Отклик — защита психики в вузе";
+</script>
+<header>
+  <div class="top">
+    <h1>Отклик</h1>
+    <div class="who" id="whoami">анонимно</div>
+  </div>
+</header>
+<main>
+<section id="secApplicant">
+  <!-- Первый экран (ТЗ п.3): что это за сервис, что происходит после
+       отправки и почему это безопасно — до любой формы. -->
+  <div class="card" id="introCard">
+    <h2>Что это за сервис</h2>
+    <p data-informal="«Отклик» — место, где можно осторожно рассказать о трудной ситуации и получить помощь: психология, конфликты, юриспруденция. Без регистрации и без имени." data-formal="«Отклик» — место, где можно осторожно рассказать о трудной ситуации и получить помощь: психология, конфликты, юриспруденция. Без регистрации и без имени.">«Отклик» — место, где можно осторожно рассказать о трудной ситуации и получить помощь: психология, конфликты, юриспруденция. Без регистрации и без имени.</p>
+    <h3>Что происходит после отправки</h3>
+    <ol class="plainlist">
+      <li data-informal="Ты сразу получаешь трек-номер — единственный ключ к обращению, сохрани его." data-formal="Вы сразу получаете трек-номер — единственный ключ к обращению, сохраните его.">Ты сразу получаешь трек-номер — единственный ключ к обращению, сохрани его.</li>
+      <li>Дежурный оператор читает обращение и передаёт его подходящему специалисту.</li>
+      <li data-informal="Специалист отвечает в чате — переписываться можно в любое время, а можно дополнить обращение или приложить скриншоты." data-formal="Специалист отвечает в чате — переписываться можно в любое время, а можно дополнить обращение или приложить скриншоты.">Специалист отвечает в чате — переписываться можно в любое время, а можно дополнить обращение или приложить скриншоты.</li>
+      <li data-informal="Когда получишь ответ — оценишь помощь и решишь, помогло ли. Всегда можно написать снова." data-formal="Когда получите ответ — оцените помощь и решите, помогло ли. Всегда можно написать снова.">Когда получишь ответ — оценишь помощь и решишь, помогло ли. Всегда можно написать снова.</li>
+    </ol>
+    <h3>Почему это безопасно</h3>
+    <ul class="plainlist">
+      <li>Обращение анонимно: имя, школа и контакты указывать не нужно.</li>
+      <li>Войти в обращение можно только по трек-номеру — его не знает даже оператор.</li>
+      <li>С фотографий и скриншотов автоматически вырезаются скрытые данные: место съёмки, время, модель телефона.</li>
+      <li>Переписку видит только специалист, который ведёт обращение.</li>
+    </ul>
+    <div class="btnrow">
+      <button class="act" data-action="goto-new">Подать обращение</button>
+      <button class="ghost" data-action="goto-track">Проверить статус по трек-номеру</button>
+    </div>
+  </div>
+
+  <div class="card" id="newAppealCard">
+    <h2>Новое обращение</h2>
+    <div class="row">
+      <div><label>Кто обращается</label>
+        <select id="apType">
+          <option value="schoolchild">Школьник</option>
+          <option value="parent">Родитель</option>
+          <option value="teacher">Педагог</option>
+        </select>
+      </div>
+      <div><label>Категория</label><select id="apCat"></select></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="apFree"> Не знаю, как это назвать — расскажу своими словами</label>
+    <!-- ТЗ п.3: тот же пункт есть и в списке категорий — человеку в стрессе
+         должно быть достаточно одного клика на «Не знаю, как это назвать». -->
+    <label id="apDescLabel" data-informal="Расскажи о том, что происходит, своими словами" data-formal="Расскажите о том, что происходит, своими словами">Расскажи о том, что происходит, своими словами</label>
+    <textarea id="apDesc" placeholder="Что происходит?"></textarea>
+    <label data-informal="Если хочешь, оставь контакт для срочной связи (необязательно)" data-formal="При желании оставьте контакт для срочной связи (необязательно)">Если хочешь, оставь контакт для срочной связи (необязательно)</label>
+    <input type="text" id="apCrisis" placeholder="например: telegram @...">
+    <!-- Уточняющие вопросы с вариантами ответа (ТЗ п.3): необязательные,
+         нужны для маршрутизации, не для допроса. -->
+    <h3 class="muted-h" data-informal="Пара вопросов, чтобы быстрее помочь (можно пропустить)" data-formal="Пара вопросов, чтобы быстрее помочь (можно пропустить)">Пара вопросов, чтобы быстрее помочь (можно пропустить)</h3>
+    <div id="apQuestions"></div>
+    <div id="apErr" class="err-box hidden"></div>
+    <button class="act" data-action="create-appeal">Отправить обращение</button>
+    <div id="apResult" class="hidden" style="margin-top:12px">
+      <div class="ok-box" id="apResultNote" data-informal="Спасибо, что поделился. Мы получили твоё обращение. Сохрани этот номер — по нему можно вернуться к разговору:" data-formal="Спасибо, что поделились. Мы получили ваше обращение. Сохраните этот номер — по нему можно вернуться к разговору:">Спасибо, что поделился. Мы получили твоё обращение. Сохрани этот номер — по нему можно вернуться к разговору:</div>
+      <div class="track" id="apTrack"></div>
+      <div class="btnrow" style="margin-top:10px">
+        <button class="ghost" data-action="copy-track">📋 Скопировать номер</button>
+        <button class="ghost" data-action="download-track">💾 Скачать файл-памятку</button>
+      </div>
+      <div id="apQR" style="margin:12px 0;text-align:center"></div>
+      <div class="note" id="apCrisisNote"></div>
+      <button class="act" data-action="verify-track">Войти по трек-номеру</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Вход по трек-номеру</h2>
+    <label>Трек-номер</label>
+    <input type="text" id="trkInput" placeholder="ОТК-XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off">
+    <div id="trkErr" class="err-box hidden"></div>
+    <button class="act" data-action="verify-track">Войти</button>
+    <h3>Сохранённые номера (в этом браузере)</h3>
+    <div id="savedTracks" class="note savedlist">пусто</div>
+  </div>
+
+  <div class="card hidden" id="apViewCard">
+    <h2><span id="avTitle" data-informal="Твоё обращение" data-formal="Моё обращение">Моё обращение</span> <span id="avStatus"></span></h2>
+    <div id="avExpl" class="ok-box"></div>
+    <div id="avCrisis" class="err-box hidden"></div>
+    <div id="avMeta"></div>
+    <!-- Своё обращение заявитель видит целиком и может дополнить (ТЗ п.3). -->
+    <h3 id="avDescTitle" data-informal="Что ты рассказал" data-formal="Содержание обращения">Содержание обращения</h3>
+    <div id="avDesc" class="note" style="white-space:pre-wrap"></div>
+    <div id="avAppendBlock">
+      <h3 data-informal="Дополнить обращение" data-formal="Дополнить обращение">Дополнить обращение</h3>
+      <textarea id="avAppendText" data-informal-ph="Что ещё важно знать специалисту? Это увидит только он" data-formal-ph="Что ещё важно знать специалисту? Это увидит только он" placeholder="Что ещё важно знать специалисту?"></textarea>
+      <div class="btnrow" style="margin-top:8px"><button class="ghost" data-action="applicant-append">Добавить к обращению</button></div>
+    </div>
+    <!-- Вложения (ТЗ п.3): до 5 файлов по 10 МБ, метаданные вырезаются на сервере. -->
+    <h3>Вложения</h3>
+    <div id="avAttach"></div>
+    <div id="avUploadBlock">
+      <input type="file" id="avFile" multiple accept="image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain">
+      <div class="btnrow" style="margin-top:8px"><button class="ghost" data-action="applicant-upload" data-informal="Прикрепить" data-formal="Прикрепить">Прикрепить</button></div>
+      <div class="note" data-informal="Скриншоты переписки помогают в ситуациях вроде кибербуллинга. До 5 файлов по 10 МБ; скрытые данные (место, время, устройство) вырезаются автоматически." data-formal="Скриншоты переписки помогают в ситуациях вроде кибербуллинга. До 5 файлов по 10 МБ; скрытые данные (место, время, устройство) вырезаются автоматически.">Скриншоты переписки помогают в ситуациях вроде кибербуллинга. До 5 файлов по 10 МБ; скрытые данные (место, время, устройство) вырезаются автоматически.</div>
+    </div>
+    <h3>Ответы анкеты</h3><div id="avAnswers"></div>
+    <h3>История статусов</h3><ul class="timeline" id="avHistory"></ul>
+    <h3>Чат</h3>
+    <div class="chatwrap"><div class="msgs" id="avMsgs"></div></div>
+    <div class="chat-send">
+      <textarea id="avMsgText" placeholder="Сообщение специалисту"></textarea>
+      <button class="act" data-action="applicant-send-message">Отправить</button>
+    </div>
+    <div id="avResultBlock" class="hidden">
+      <h3>Результат</h3>
+      <textarea id="avReturnReason" data-informal-ph="Что не помогло? Твои слова помогут подобрать другой способ (необязательно)" data-formal-ph="Что не помогло? Ваши слова помогут подобрать другой способ (необязательно)" placeholder="Что не помогло? (необязательно)"></textarea>
+      <div class="btnrow">
+        <button class="ok" data-action="applicant-result" data-arg="1">Помогло</button>
+        <button class="ghost" data-action="applicant-result" data-arg="0">Не помогло</button>
+      </div>
+    </div>
+    <div id="avFeedbackBlock" class="hidden">
+      <h3>Оценка работы специалиста (1–5)</h3>
+      <div class="act-line">
+        <div class="grow"><select id="avRating"><option>5</option><option>4</option><option>3</option><option>2</option><option>1</option></select></div>
+        <button class="ghost" data-action="applicant-feedback">Отправить оценку</button>
+      </div>
+      <textarea id="avComment" placeholder="Комментарий (необязательно)"></textarea>
+    </div>
+    <!-- ТЗ п.3 (закрытие): возможность написать снова после завершения. -->
+    <div id="avAgainBlock" class="hidden" style="margin-top:12px">
+      <button class="act" data-action="write-again" data-informal="Написать снова" data-formal="Написать снова">Написать снова</button>
+    </div>
+  </div>
+</section>
+<section id="secStaff" class="hidden">
+  <div class="card" id="loginCard">
+    <h2>Вход сотрудника</h2>
+    <div class="row">
+      <div><label>Логин</label><input type="text" id="stLogin" placeholder="operator" autocapitalize="none" autocomplete="username"></div>
+      <div><label>Пароль</label><input type="password" id="stPass" placeholder="otklik-demo-2026" autocomplete="current-password"></div>
+    </div>
+    <div class="note" style="margin-top:8px">Демо: admin / operator / psychologist1 / psychologist2 / lawyer1 / mediator1 — пароль otklik-demo-2026</div>
+    <div id="stErr" class="err-box hidden"></div>
+    <button class="act" data-action="staff-login">Войти</button>
+  </div>
+
+  <div class="card hidden" id="stHome">
+    <div class="panel-head">
+      <h2 id="stHello"></h2>
+      <button class="ghost small" data-action="staff-logout">Выйти</button>
+    </div>
+
+    <div id="opPanel" class="hidden">
+      <div class="panel-head">
+        <h3>Очередь новых <span id="opQueueOverdue" class="overdue-counter hidden"></span></h3>
+        <button class="ghost small" data-action="reload-queue">Обновить</button>
+      </div>
+      <div id="opQueue"></div>
+      <hr class="divider">
+      <div class="panel-head">
+        <h3>Все обращения</h3>
+        <div class="filter-line">
+          <label>Фильтр по статусу</label>
+          <select id="opFilterStatus">
+            <option value="active">активные</option>
+            <option value="distributed">распределённые (контроль)</option>
+            <option value="">любой статус</option>
+            <option value="new">новое</option><option value="assigned">назначено</option>
+            <option value="in_progress">в работе</option><option value="needs_clarification">нужны уточнения</option>
+            <option value="answer_ready">готов ответ</option><option value="returned">возвращено</option>
+            <option value="completed">завершено</option><option value="rejected">отклонено</option>
+            <option value="closed_no_response">закрыто без ответа</option>
+          </select>
+          <button class="ghost small" data-action="reload-op-all">Обновить</button>
+        </div>
+      </div>
+      <div id="opAll"></div>
+      <hr class="divider">
+      <div class="panel-head">
+        <h3>Моя аналитика</h3>
+        <button class="ghost small" data-action="reload-my-stats">Обновить</button>
+      </div>
+      <div id="opMyStats" class="note"></div>
+      <div class="form-foot"><button class="ghost small" data-action="export-csv">Выгрузить CSV (все обращения)</button></div>
+    </div>
+
+    <div id="exPanel" class="hidden">
+      <div class="panel-head">
+        <h3>Мои обращения</h3>
+        <div class="filter-line">
+          <label>Статус</label>
+          <select id="exFilterStatus">
+            <option value="">любой статус</option>
+            <option value="assigned">назначено</option><option value="in_progress">в работе</option>
+            <option value="needs_clarification">нужны уточнения</option>
+            <option value="answer_ready">готов ответ</option><option value="completed">завершено</option>
+            <option value="returned">возвращено</option>
+          </select>
+          <label>Приоритет</label>
+          <select id="exFilterPriority">
+            <option value="">любой</option>
+            <option value="low">низкий</option><option value="normal">обычный</option>
+            <option value="urgent">срочный</option>
+          </select>
+          <label>Категория</label>
+          <select id="exFilterCategory"><option value="">любая</option></select>
+          <button class="ghost small" data-action="reload-expert">Обновить</button>
+        </div>
+      </div>
+      <div id="exList"></div>
+      <hr class="divider">
+      <div class="panel-head">
+        <h3>Моя аналитика</h3>
+        <button class="ghost small" data-action="reload-my-stats">Обновить</button>
+      </div>
+      <div id="exMyStats" class="note"></div>
+      <div class="form-foot"><button class="ghost small" data-action="export-csv">Выгрузить CSV (мои обращения)</button></div>
+    </div>
+
+    <div id="adPanel" class="hidden">
+      <div class="panel-head">
+        <h3>Аналитика</h3>
+        <div>
+          <button class="ghost small" data-action="export-csv">Выгрузить CSV</button>
+          <button class="ghost small" data-action="reload-stats">Обновить</button>
+        </div>
+      </div>
+      <div id="adStats" class="note"></div>
+      <hr class="divider">
+      <div class="panel-head">
+        <h3>Все обращения</h3>
+        <button class="ghost small" data-action="reload-admin-appeals">Обновить</button>
+      </div>
+      <div id="adAppeals"></div>
+      <hr class="divider">
+      <h3>Пользователи</h3>
+      <div class="row">
+        <div><label>Логин</label><input type="text" id="nuLogin" autocapitalize="none"></div>
+        <div><label>Пароль</label><input type="password" id="nuPass"></div>
+        <div><label>Роль</label><select id="nuRole"><option value="expert">специалист</option><option value="operator">оператор</option><option value="admin">администратор</option></select></div>
+        <div><label>Группа</label><select id="nuGroup"><option value=""></option><option value="psychologists">психолог</option><option value="conflictologists">конфликтолог</option><option value="lawyers">юрист</option><option value="social_pedagogues">социальный педагог</option></select></div>
+      </div>
+      <div class="form-foot"><button class="act small" data-action="admin-create-user">Создать</button></div>
+      <div id="adUsers"></div>
+      <hr class="divider">
+      <h3>Категории</h3>
+      <div class="row">
+        <div><label>Название</label><input type="text" id="ncName"></div>
+        <div><label>Группа</label><select id="ncGroup"><option value="psychologists">психолог</option><option value="conflictologists">конфликтолог</option><option value="lawyers">юрист</option><option value="social_pedagogues">социальный педагог</option></select></div>
+        <div><label>Свободная форма</label><select id="ncFree"><option value="false">нет</option><option value="true">да</option></select></div>
+      </div>
+      <div class="form-foot"><button class="act small" data-action="admin-create-category">Создать</button></div>
+      <div id="adCats"></div>
+      <hr class="divider">
+      <!-- ТЗ п.4.5: рамки маршрутизации задаёт администратор — лимит
+           активных обращений на специалиста (категории и группы — выше). -->
+      <h3>Маршрутизация</h3>
+      <div class="row">
+        <div><label>Лимит активных обращений на специалиста</label><input type="number" id="adLimit" min="1" max="100"></div>
+        <div class="form-foot"><button class="act small" data-action="admin-save-settings">Сохранить</button></div>
+      </div>
+      <div class="note">Лимит мягкий: система подсказывает свободного специалиста и предупреждает о перегрузке, но назначает оператор.</div>
+      <hr class="divider">
+      <div class="panel-head">
+        <h3>Жалобы</h3>
+        <button class="ghost small" data-action="reload-complaints">Обновить</button>
+      </div>
+      <div id="adComplaints" class="note"></div>
+    </div>
+  </div>
+
+  <div class="card hidden" id="detCard">
+    <div class="det-head">
+      <button class="ghost small" data-action="close-detail">← К списку</button>
+      <h2>Обращение <span id="dStatus"></span></h2>
+    </div>
+    <div id="dCrisis" class="err-box">⚠ Обнаружен кризисный сценарий</div>
+    <!-- ТЗ п.4.4: видно, кто из специалистов сейчас в карточке обращения. -->
+    <div id="dPresence" class="presence hidden"></div>
+    <div id="dMeta"></div>
+    <h3 id="dDescTitle">Описание</h3><pre class="raw" id="dDesc"></pre>
+    <div id="dDescRestricted" class="note hidden">Текст обращения и ответы анкеты администратору недоступны (матрица прав, ТЗ п.5): администратор работает с метаданными, статусами и аналитикой.</div>
+    <!-- Вложения заявителя (ТЗ п.3): метаданные вырезаны на сервере, здесь — просмотр. -->
+    <h3 id="dAttachTitle" class="hidden">Вложения</h3>
+    <div id="dAttach" class="note"></div>
+    <div id="dAnswers"></div>
+    <!-- ТЗ п.4.2: подсказка системы по категории в окне обработки оператора. -->
+    <div id="dSuggest" class="act-hint hidden"></div>
+    <!-- ТЗ п.4.5: подсказка маршрутизации — группа по правилу и свободный
+         исполнитель с учётом лимита; назначить можно любого. -->
+    <div id="dRouting" class="act-hint hidden"></div>
+
+    <div id="dOpActions" class="hidden actions-panel">
+      <h3>Действия оператора / администратора</h3>
+      <div id="opHint" class="act-hint hidden"></div>
+      <div class="act-line" id="opAssignRow">
+        <div class="grow"><label>Назначить эксперта</label><select id="dExpert"></select></div>
+        <div class="grow"><label>Комментарий к назначению</label><input type="text" id="dAssignReason"></div>
+        <button class="act" data-action="op-assign">Назначить</button>
+      </div>
+      <div class="act-line" id="opPriorityRow">
+        <div class="grow"><label>Приоритет</label><select id="dPriority"><option value="low">низкий</option><option value="normal">обычный</option><option value="urgent">срочный</option></select></div>
+        <button class="ghost" data-action="op-priority">Изменить</button>
+      </div>
+      <div class="act-line" id="opCategoryRow">
+        <div class="grow"><label>Категория</label><select id="dCategory"></select></div>
+        <button class="ghost" data-action="op-category">Сменить</button>
+      </div>
+      <div class="act-line hidden" id="adStatusRow">
+        <div class="grow"><label>Статус (разблокировка зависшего обращения)</label><select id="dAdminStatus">
+          <option value="new">новое</option>
+          <option value="assigned">назначено</option>
+          <option value="in_progress">в работе</option>
+          <option value="needs_clarification">нужны уточнения</option>
+          <option value="answer_ready">готов ответ</option>
+          <option value="completed">завершено</option>
+          <option value="returned">возвращено</option>
+          <option value="rejected">отклонено</option>
+          <option value="closed_no_response">закрыто без ответа</option>
+        </select></div>
+        <div class="grow"><label>Причина смены статуса</label><input type="text" id="dAdminStatusReason"></div>
+        <button class="act" data-action="ad-status">Сменить статус</button>
+      </div>
+      <div class="act-line" id="opCompleteRow">
+        <div class="grow"><label>Рекомендация (закрыть самому)</label><input type="text" id="dCompleteRec"></div>
+        <button class="ok" data-action="op-complete">Завершить</button>
+      </div>
+      <div class="act-line" id="opReturnRow">
+        <div class="grow"><label>Причина возврата на доработку</label><input type="text" id="dReturnReason"></div>
+        <button class="ghost" data-action="op-return">Вернуть на доработку</button>
+      </div>
+      <div class="danger-zone" id="opCloseNoRespRow">
+        <button class="danger" data-action="op-close-no-response">Закрыть: нет ответа заявителя</button>
+      </div>
+      <div class="danger-zone" id="opRejectRow">
+        <label>Причина отклонения</label>
+        <div class="act-line">
+          <div class="grow"><input type="text" id="dRejectReason"></div>
+          <button class="danger" data-action="op-reject">Отклонить</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="dExActions" class="hidden actions-panel">
+      <h3>Действия эксперта</h3>
+      <div id="exHint" class="act-hint"></div>
+      <div class="btnrow" id="exTakeRow">
+        <button class="act" data-action="ex-take">Взять в работу</button>
+      </div>
+      <div class="btnrow" id="exClarifyRow">
+        <button class="ghost" data-action="ex-clarify">Запросить уточнение</button>
+      </div>
+      <div class="act-line" id="exRecRow">
+        <div class="grow"><label>Рекомендация заявителю</label><input type="text" id="dRec"></div>
+        <button class="ok" data-action="ex-recommendation">Опубликовать</button>
+      </div>
+      <div class="act-line" id="exTransferRow">
+        <div class="grow"><label>Причина передачи другому специалисту</label><input type="text" id="dTransferReason"></div>
+        <button class="ghost" data-action="ex-transfer">Передать</button>
+      </div>
+      <div class="act-line" id="exContribRow">
+        <div class="grow"><label>Подключить коллегу-соисполнителя</label><select id="dContributor"></select></div>
+        <button class="ghost" data-action="ex-contributor">Подключить</button>
+      </div>
+    </div>
+
+    <div class="grid2" style="margin-top:14px">
+      <div>
+        <h3>Чат с заявителем</h3>
+        <div id="dChatRestricted" class="note hidden">Переписка заявителя со специалистом недоступна оператору и администратору — после назначе&shy;ния обращение ведёт эксперт; администратор в переписке не участвует (ограничение доступа, ТЗ п.2/п.4).</div>
+        <div id="dChatBody">
+          <div class="chatwrap"><div class="msgs" id="dMsgs"></div></div>
+          <div class="chat-send">
+            <textarea id="dMsgText" placeholder="Сообщение"></textarea>
+            <button class="act" data-action="detail-send-message">Отправить</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div id="dNotesWrap">
+          <h3>Внутренние заметки <span class="note" style="font-weight:400">— не видны заявителю</span></h3>
+          <div class="chatwrap"><div class="msgs" id="dNotes"></div></div>
+          <!-- ТЗ п.4.4: заметки пишут специалисты-участники; оператор читает. -->
+          <div class="chat-send" id="dNoteForm">
+            <textarea id="dNoteText" placeholder="Заметка"></textarea>
+            <button class="ghost" data-action="detail-send-note">Добавить</button>
+          </div>
+        </div>
+        <div id="dNotesRestricted" class="note hidden">Внутренние заметки видны участникам обращения и оператору, но не заявителю; администратору недоступны (ТЗ п.4.4/п.5).</div>
+        <h3>События (аудит)</h3>
+        <div id="dEvents" class="note">—</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+</main>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script type="module" src="/assets/js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+// Панель администратора: все обращения, управление пользователями,
+// справочник категорий и жалобы на специалистов.
+import { $, esc, fmtTime, badge, toast } from '../core/dom.js';
+import { api } from '../core/api.js';
+import { ruStatus, ruRole, ruGroup } from '../core/i18n.js';
+import { registerActions } from '../core/actions.js';
+import { loadCategories } from '../categories.js';
+
+const shortId = (s) => (s ? String(s).slice(0, 8) : '—');
+
+// ТЗ п.4: аналитика для администратора — объёмы, нагрузка, среднее время.
+export async function loadStats() {
+  try {
+    const s = await api('GET', '/api/admin/stats');
+    const avg = s.avg_resolution_hours != null ? (Math.round(s.avg_resolution_hours * 10) / 10) + ' ч' : '—';
+    const row = (l, v) => `<div class="kv"><b>${l}</b><span>${v}</span></div>`;
+    $('adStats').innerHTML =
+      row('Всего обращений', s.total) +
+      row('В работе', s.active + ' (срочных: ' + s.urgent_active + ')') +
+      row('Новых за 7 / 30 дней', s.last_7_days + ' / ' + s.last_30_days) +
+      row('Завершено', s.resolved) +
+      row('Среднее время решения', avg) +
+      '<h3>По статусам</h3>' +
+      (s.by_status || []).map((r) => row(esc(ruStatus(r.label)), r.count)).join('') +
+      '<h3>Топ категорий</h3>' +
+      (s.top_categories || []).map((r) => row(esc(r.label), r.count)).join('') +
+      '<h3>По специальностям</h3>' +
+      (s.by_specialist_group || []).map((r) => row(r.label === 'free' ? 'свободная форма' : esc(ruGroup(r.label)), r.count)).join('');
+  } catch (e) { $('adStats').textContent = e.message; }
+}
+
+export async function loadAdminAppeals() {
+  try {
+    const list = (await api('GET', '/api/admin/appeals')).appeals || [];
+    $('adAppeals').innerHTML = list.map((a) =>
+      `<div class="item" data-action="open-detail" data-arg="${esc(a.id)}">
+        <div class="l1"><span class="cat">${esc(a.category_name || 'Свободный текст')}</span>${badge(a.status, ruStatus(a.status))}
+        ${a.no_expert_in_group ? badge('crisis', 'нет специалистов группы') : ''}
+        ${a.group_overloaded ? badge('transfer', 'группа перегружена') : ''}</div>
+        <div class="l2"><span>#${shortId(a.id)}</span><span>${fmtTime(a.created_at)}</span></div>
+      </div>`).join('') || '<div class="note" style="margin-top:8px">пусто</div>';
+  } catch (e) { $('adAppeals').innerHTML = '<div class="note">' + esc(e.message) + '</div>'; }
+}
+
+// ТЗ п.4.5: рамки маршрутизации — лимит активных обращений на специалиста.
+export async function loadAdminSettings() {
+  try {
+    const s = await api('GET', '/api/admin/settings');
+    $('adLimit').value = s.expert_active_limit;
+  } catch (e) { toast(e.message); }
+}
+
+async function adminSaveSettings() {
+  try {
+    const v = parseInt($('adLimit').value, 10);
+    if (!v || v < 1 || v > 100) { toast('Лимит — целое число от 1 до 100'); return; }
+    const s = await api('PUT', '/api/admin/settings', { expert_active_limit: v });
+    toast('Лимит сохранён: ' + s.expert_active_limit);
+    loadAdminAppeals(); // подсветка «группа перегружена» пересчитывается
+  } catch (e) { toast(e.message); }
+}
+
+export async function loadAdminUsers() {
+  try {
+    const users = (await api('GET', '/api/admin/users')).users || [];
+    $('adUsers').innerHTML = users.map((u) => `<div class="item" style="cursor:default">
+      <div class="l1"><span class="cat">${esc(u.login)} ${u.active ? '✅' : '⛔'}</span>
+        <button class="ghost small" data-action="admin-toggle-user" data-arg="${esc(u.id)}" data-active="${!u.active ? 1 : 0}">${u.active ? 'Отключить' : 'Включить'}</button></div>
+      <div class="l2"><span>${esc(ruRole(u.role))}</span><span>${esc(u.specialist_group ? ruGroup(u.specialist_group) : '—')}</span></div>
+    </div>`).join('');
+  } catch (e) { toast(e.message); }
+}
+
+async function adminToggleUser(id, el) {
+  try {
+    await api('PATCH', '/api/admin/users/' + id, { active: el.dataset.active === '1' });
+    loadAdminUsers();
+  } catch (e) { toast(e.message); }
+}
+
+async function adminCreateUser() {
+  try {
+    await api('POST', '/api/admin/users', {
+      login: $('nuLogin').value.trim(), password: $('nuPass').value,
+      role: $('nuRole').value, specialist_group: $('nuGroup').value
+    });
+    toast('Пользователь создан');
+    loadAdminUsers();
+  } catch (e) { toast(e.message); }
+}
+
+export async function loadAdminCats() {
+  try {
+    const cats = (await api('GET', '/api/admin/categories')).categories || [];
+    $('adCats').innerHTML = cats.map((c) => `<div class="item" style="cursor:default">
+      <div class="l1"><span class="cat">${esc(c.name)} ${c.active ? '✅' : '⛔'}</span>
+        <button class="ghost small" data-action="admin-toggle-cat" data-arg="${esc(c.id)}" data-active="${!c.active ? 1 : 0}">${c.active ? 'Скрыть' : 'Включить'}</button></div>
+      <div class="l2"><span>${esc(ruGroup(c.specialist_group))}</span><span>${c.free_form ? 'свободная форма' : 'фиксированная'}</span></div>
+    </div>`).join('');
+    loadCategories();
+  } catch (e) { toast(e.message); }
+}
+
+async function adminToggleCat(id, el) {
+  try {
+    await api('PATCH', '/api/admin/categories/' + id, { active: el.dataset.active === '1' });
+    loadAdminCats();
+  } catch (e) { toast(e.message); }
+}
+
+async function adminCreateCategory() {
+  try {
+    await api('POST', '/api/admin/categories', {
+      name: $('ncName').value.trim(), specialist_group: $('ncGroup').value, free_form: $('ncFree').value === 'true'
+    });
+    toast('Категория создана');
+    loadAdminCats();
+  } catch (e) { toast(e.message); }
+}
+
+async function loadComplaints() {
+  try {
+    const cs = (await api('GET', '/api/admin/complaints')).complaints || [];
+    $('adComplaints').innerHTML = cs.map((c) =>
+      `<div style="margin:8px 0;padding:12px;border:1px solid var(--line);border-radius:12px;overflow-wrap:anywhere">
+       <b>Обращение #${shortId(c.appeal_id)}</b> · ${fmtTime(c.created_at)}<br>${esc(c.text)}</div>`).join('') || 'жалоб нет';
+  } catch (e) { $('adComplaints').textContent = e.message; }
+}
+
+registerActions({
+  'reload-admin-appeals': loadAdminAppeals,
+  'admin-save-settings': adminSaveSettings,
+  'admin-toggle-user': adminToggleUser,
+  'admin-create-user': adminCreateUser,
+  'admin-toggle-cat': adminToggleCat,
+  'admin-create-category': adminCreateCategory,
+  'reload-complaints': loadComplaints,
+  'reload-stats': loadStats,
+});
