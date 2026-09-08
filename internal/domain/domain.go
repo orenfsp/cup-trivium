@@ -1,5 +1,4 @@
 // Package domain содержит общие доменные типы: роли, статусы,
-// машину состояний обращения и субъекта доступа (Principal).
 package domain
 
 import (
@@ -41,12 +40,10 @@ var allStatuses = map[Status]bool{
 
 func (s Status) Valid() bool { return allStatuses[s] }
 
-// Terminal — завершающие статусы: из них нет рабочих переходов.
 func (s Status) Terminal() bool {
 	return s == StatusCompleted || s == StatusRejected || s == StatusClosedNoResponse
 }
 
-// Transitions — централизованная машина состояний.
 var Transitions = map[Status]map[Status]bool{
 	StatusNew: {
 		StatusAssigned:  true,
@@ -109,9 +106,7 @@ func (t ApplicantType) Valid() bool {
 	return t == ApplicantSchoolchild || t == ApplicantParent || t == ApplicantTeacher
 }
 
-// Principal — субъект доступа после аутентификации.
-// У заявителя нет аккаунта: после проверки трек-номера выдаётся
-// короткоживая сессия, привязанная ровно к одному обращению.
+
 type Principal struct {
 	Role     Role
 	UserID   uuid.UUID // для сотрудников
@@ -133,16 +128,12 @@ var (
 	ErrRateLimited  = errors.New("rate limited")
 )
 
-// IntakeQuestion — необязательный уточняющий вопрос анкеты с вариантами
-// ответа: нужен для маршрутизации и приоритета, не для допроса (ТЗ п.3).
+
 type IntakeQuestion struct {
 	Text    string   `json:"text"`
 	Options []string `json:"options"`
 }
 
-// IntakeQuestions — стартовый набор уточняющих вопросов (ТЗ: где происходит,
-// как давно, кто участвует, обращался ли уже). Формулировки нейтральны
-// к «ты»/«вы»: анкета одна на все типы заявителей.
 var IntakeQuestions = []IntakeQuestion{
 	{Text: "Где это происходит?", Options: []string{
 		"В школе", "В интернете или соцсетях", "И там, и там", "Другое место"}},
@@ -160,7 +151,7 @@ const MaxAttachmentsPerAppeal = 5
 // MaxAttachmentSizeBytes — лимит одного файла.
 const MaxAttachmentSizeBytes = 10 << 20 // 10 МБ на файл
 
-// Пороги контроля SLA (ТЗ п.4.2), в часах: обращение в очереди новых,
+// Пороги контроля SLA, в часах: обращение в очереди новых,
 // ждущее обработки дольше QueueOverdueHours, — просрочено; распределённое
 // обращение, где заявитель не получил ответа дольше ResponseOverdueHours,
 // считается зависшим.
