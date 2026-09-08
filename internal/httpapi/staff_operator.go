@@ -13,7 +13,6 @@ type assignReq struct {
 
 func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
-	// ТЗ п.4: назначать/менять исполнителя могут оператор и администратор.
 	if p.Role != domain.RoleOperator && p.Role != domain.RoleAdmin {
 		writeJSON(w, http.StatusForbidden, errorResp{"assign is available to operator and admin only"})
 		return
@@ -50,7 +49,6 @@ type reasonReq struct {
 
 func (s *Server) handleReject(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
-	// Отклонение — прерогатива оператора (админу не положено по ТЗ п.4).
 	if p.Role != domain.RoleOperator {
 		writeJSON(w, http.StatusForbidden, errorResp{"reject is available to operator only"})
 		return
@@ -81,7 +79,6 @@ type recommendationReq struct {
 
 func (s *Server) handleCompleteByOperator(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
-	// ТЗ п.4: обращения администратор не закрывает.
 	if p.Role != domain.RoleOperator {
 		writeJSON(w, http.StatusForbidden, errorResp{"complete is available to operator only"})
 		return
@@ -113,7 +110,6 @@ type priorityReq struct {
 
 func (s *Server) handleSetPriority(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
-	// ТЗ п.4: приоритет меняют оператор и администратор.
 	if p.Role != domain.RoleOperator && p.Role != domain.RoleAdmin {
 		writeJSON(w, http.StatusForbidden, errorResp{"priority change is available to operator and admin only"})
 		return
@@ -139,7 +135,7 @@ func (s *Server) handleSetPriority(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.staffAppeal(r, a, p))
 }
 
-// handleReturnForRework — возврат на доработку (ТЗ п.5: право оператора).
+// handleReturnForRework — возврат на доработку (только оператор):
 // answer_ready -> returned: результат не принят, обращение вернулось к
 // оператору для переназначения; счётчик возвратов увеличивается.
 func (s *Server) handleReturnForRework(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +171,6 @@ type categoryReq struct {
 
 func (s *Server) handleSetCategory(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
-	// ТЗ п.4: категорию (правило маршрутизации) меняют оператор и администратор.
 	if p.Role != domain.RoleOperator && p.Role != domain.RoleAdmin {
 		writeJSON(w, http.StatusForbidden, errorResp{"category change is available to operator and admin only"})
 		return

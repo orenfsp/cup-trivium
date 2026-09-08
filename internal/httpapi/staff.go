@@ -37,16 +37,16 @@ type staffAppealResp struct {
 	IntakeAnswers     []store.IntakeAnswer `json:"intake_answers"`
 	Attachments       []store.Attachment   `json:"attachments,omitempty"`
 	Participants      []store.Participant  `json:"participants,omitempty"`
-	// CategorySuggestion (ТЗ п.4.2): подсказка системы по категории —
-	// считается по тексту и анкете, отдаётся только оператору.
+	// CategorySuggestion — подсказка системы по категории: считается
+	// по тексту и анкете, отдаётся только оператору.
 	CategorySuggestion *categorySuggestion `json:"category_suggestion,omitempty"`
-	// Routing (ТЗ п.4.5): подсказка маршрутизации оператору — группа по
-	// правилу («категория → группа специалистов»), свободные исполнители
+	// Routing — подсказка маршрутизации оператору: группа по правилу
+	// («категория → группа специалистов»), свободные исполнители
 	// с учётом лимита. Назначить можно любого — решение за человеком.
 	Routing *routingHint `json:"routing,omitempty"`
 }
 
-// routingExpert — специалист группы с текущей нагрузкой (ТЗ п.4.5).
+// routingExpert — специалист группы с текущей нагрузкой.
 type routingExpert struct {
 	ID       string `json:"id"`
 	Login    string `json:"login"`
@@ -82,7 +82,7 @@ func groupRU(g string) string {
 	return g
 }
 
-// buildRoutingHint — подсказка маршрутизации для оператора (ТЗ п.4.5).
+// buildRoutingHint — подсказка маршрутизации для оператора.
 // Группа берётся из назначенной категории; для свободного текста — из
 // подсказки системы по ключевым словам (потенциал: ML-классификация).
 func (s *Server) buildRoutingHint(ctx context.Context, a store.Appeal, sug *categorySuggestion) *routingHint {
@@ -157,17 +157,17 @@ func (s *Server) staffAppeal(r *http.Request, a store.Appeal, p domain.Principal
 		CreatedAt: a.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: a.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 	}
-	// ТЗ п.5 (матрица прав): администратор текст обращения и ответы анкеты
-	// не читает — он работает с метаданными, статусами и аналитикой.
+	// Администратор текст обращения и ответы анкеты не читает —
+	// он работает с метаданными, статусами и аналитикой.
 	if p.Role == domain.RoleAdmin {
 		resp.Description = ""
 	} else {
 		resp.IntakeAnswers, _ = s.st.ListIntakeAnswers(r.Context(), a.ID)
 		resp.Attachments, _ = s.st.ListAttachments(r.Context(), a.ID)
-		// ТЗ п.4.2: в окне обработки оператору видна подсказка системы по категории.
+		// Оператору в окне обработки — подсказка системы по категории.
 		if p.Role == domain.RoleOperator {
 			resp.CategorySuggestion = s.suggestCategory(r.Context(), a, resp.IntakeAnswers)
-			// ТЗ п.4.5: подсказка маршрутизации — группа по правилу и свободные
+			// Подсказка маршрутизации: группа по правилу и свободные
 			// исполнители с учётом лимита (решение о назначении — за оператором).
 			resp.Routing = s.buildRoutingHint(r.Context(), a, resp.CategorySuggestion)
 		}

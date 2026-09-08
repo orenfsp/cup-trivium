@@ -155,8 +155,7 @@ func (st *Store) CreateAppeal(ctx context.Context, p CreateAppealParams) (Appeal
 }
 
 // AppendDescription дописывает текст к описанию обращения от заявителя
-// (ТЗ п.3: заявитель может дополнить обращение после отправки) и фиксирует
-// событие аудита. Терминальные обращения менять нельзя.
+// и фиксирует событие аудита. Терминальные обращения менять нельзя.
 func (st *Store) AppendDescription(ctx context.Context, appealID uuid.UUID,
 	addition string, crisisHit bool) (Appeal, error) {
 	tag := time.Now().UTC().Format("02.01.2006 15:04")

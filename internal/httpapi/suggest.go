@@ -9,9 +9,9 @@ import (
 	"otklik/internal/store"
 )
 
-// categorySuggestion — подсказка системы по категории обращения (ТЗ п.4.2):
-// оператору в окне обработки показывается, куда система относит обращение
-// и по каким маркерам. Подсказка не заменяет решение оператора.
+// categorySuggestion — подсказка системы по категории обращения:
+// оператору показывается, куда система относит обращение и по каким
+// маркерам. Подсказка не заменяет решение оператора.
 type categorySuggestion struct {
 	CategoryID      uuid.UUID `json:"category_id"`
 	CategoryName    string    `json:"category_name"`

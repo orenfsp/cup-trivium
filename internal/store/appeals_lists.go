@@ -23,18 +23,18 @@ type QueueItem struct {
 	ReturnCount       int       `json:"return_count"`
 	CreatedAt         time.Time `json:"created_at"`
 	WaitingSec        int       `json:"waiting_sec"`
-	// Overdue (ТЗ п.4.2): ждёт обработки дольше SLA — для счётчика просроченных.
+	// Ждёт обработки дольше SLA — для счётчика просроченных.
 	Overdue           bool      `json:"overdue"`
 	AttachmentsCount  int       `json:"attachments_count"`
-	// Маршрутизация (ТЗ п.4.5): группа категории обращения и особые случаи.
+	// Маршрутизация: группа категории обращения и особые случаи.
 	RoutingGroup    *string `json:"routing_group,omitempty"` // «по правилу это группа …»
 	NoExpertInGroup bool    `json:"no_expert_in_group"`      // в группе нет активных специалистов
 	GroupOverloaded bool    `json:"group_overloaded"`        // все специалисты группы у лимита
 }
 
-// routingFlagsSQL — общие SQL-выражения маршрутизации (ТЗ п.4.5) для
-// строчных выборок (очередь оператора, метаданные админа). $N — лимит
-// активных обращений на специалиста из настроек администратора.
+// routingFlagsSQL — общие SQL-выражения маршрутизации для строчных выборок
+// (очередь оператора, метаданные админа). $N — лимит активных обращений
+// на специалиста из настроек администратора.
 const routingFlagsSQL = `
 	       c.specialist_group,
 	       c.specialist_group IS NOT NULL AND NOT EXISTS (
@@ -110,16 +110,16 @@ type OperatorListItem struct {
 	ReturnCount    int        `json:"return_count"`
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
-	// NoReplySec (ТЗ п.4.2, контроль): сколько секунд прошло с последнего
-	// сообщения заявителя, на которое специалист ещё не ответил; nil — если
-	// неотвеченных сообщений нет. Текст переписки в списке не отдаётся.
+	// NoReplySec: сколько секунд прошло с последнего сообщения заявителя,
+	// на которое специалист ещё не ответил; nil — если неотвеченных
+	// сообщений нет. Текст переписки в списке не отдаётся.
 	NoReplySec *int `json:"no_reply_sec"`
 }
 
 // ListOperatorAppeals — все обращения для панели оператора с фильтром:
-// '' — любые, 'active' — незавершённые, 'distributed' — распределённые
-// (контроль по ТЗ п.4.2), иначе точное совпадение статуса. Зависшие
-// без ответа (дольше SLA) поднимаются вверх списка.
+// '' — любые, 'active' — незавершённые, 'distributed' — распределённые,
+// иначе точное совпадение статуса. Зависшие без ответа (дольше SLA)
+// поднимаются вверх списка.
 func (st *Store) ListOperatorAppeals(ctx context.Context, status string) ([]OperatorListItem, error) {
 	rows, err := st.DB.QueryContext(ctx, `
 		WITH la AS (
@@ -226,8 +226,8 @@ type AdminAppealMeta struct {
 	Version        int       `json:"version"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
-	// Маршрутизация (ТЗ п.4.5): подсветка администратору обращений,
-	// для которых не нашлось исполнителя по правилу.
+	// Подсветка администратору обращений, для которых
+	// не нашлось исполнителя по правилу.
 	RoutingGroup    *string `json:"routing_group,omitempty"`
 	NoExpertInGroup bool    `json:"no_expert_in_group"`
 	GroupOverloaded bool    `json:"group_overloaded"`

@@ -18,7 +18,6 @@ const fmtSize = (n) => n >= 1048576 ? (n / 1048576).toFixed(1) + ' МБ' : Math.
 export async function loadApplicantView() {
   let v;
   try { v = await api('GET', '/api/appeals/me/'); } catch (e) { return; }
-  // Тон «ты»/«вы» подстраивается под тип заявителя (ТЗ п.3.1).
   applyTone(v.applicant_type);
   $('apViewCard').classList.remove('hidden');
   $('avStatus').innerHTML = badge(v.status, ruStatus(v.status));
@@ -60,11 +59,10 @@ export async function loadApplicantView() {
     `<div class="msg ${m.author_type === 'applicant' ? 'mine' : ''}"><div class="a">${esc(ruAuthor(m.author_type))} · ${fmtTime(m.created_at)}</div>${esc(m.text)}</div>`).join('')
     || '<div class="note">пока нет сообщений</div>';
   $('avMsgs').scrollTop = 1e9;
-  // Подтверждение результата доступно только когда помощь уже оказана,
-  // оценка — когда результат оказан или обращение завершено (ТЗ, п.1).
+  // Подтверждение результата — только в answer_ready, оценку можно
+  // оставить и после завершения обращения.
   $('avResultBlock').classList.toggle('hidden', v.status !== 'answer_ready');
   $('avFeedbackBlock').classList.toggle('hidden', !(v.status === 'answer_ready' || v.status === 'completed'));
-  // ТЗ п.3 (закрытие): после завершения всегда можно написать снова.
   $('avAgainBlock').classList.toggle('hidden', !closed);
 }
 
@@ -78,8 +76,8 @@ async function apSendMessage() {
   } catch (e) { toast(e.message); }
 }
 
-// Дописывание обращения после отправки (ТЗ п.3): текст добавляется
-// к описанию и сразу виден специалисту.
+// Дописывание обращения после отправки: текст добавляется к описанию
+// и сразу виден специалисту.
 async function apAppend() {
   const text = $('avAppendText').value.trim();
   if (text.length < 10) {
@@ -94,7 +92,7 @@ async function apAppend() {
   } catch (e) { toast(e.message); }
 }
 
-// Вложения (ТЗ п.3): до 5 файлов по 10 МБ; лимиты и очистку метаданных
+// Вложения: до 5 файлов по 10 МБ; лимиты и очистку метаданных
 // дополнительно проверяет сервер.
 async function apUpload() {
   const files = [...$('avFile').files];
@@ -123,7 +121,7 @@ async function apUpload() {
 }
 
 async function apResult(helped) {
-  // При «Не помогло» причина возврата уходит оператору (ТЗ п.2).
+  // При «Не помогло» причина возврата уходит оператору.
   const reason = helped ? '' : $('avReturnReason').value.trim();
   try {
     await api('POST', '/api/appeals/me/result', { helped, reason });
@@ -147,7 +145,6 @@ registerActions({
   'applicant-upload': apUpload,
   'applicant-result': (arg) => apResult(arg === '1'),
   'applicant-feedback': apFeedback,
-  // ТЗ п.3 (закрытие): «написать снова» возвращает к форме нового обращения.
   'write-again': () => {
     $('newAppealCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     $('apDesc').focus();

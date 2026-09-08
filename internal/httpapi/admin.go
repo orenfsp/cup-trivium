@@ -10,7 +10,7 @@ import (
 	"otklik/internal/domain"
 )
 
-// expertWithLoad — специалист с текущей нагрузкой и лимитом (ТЗ п.4.5).
+// expertWithLoad — специалист с текущей нагрузкой и лимитом.
 type expertWithLoad struct {
 	ID              string `json:"id"`
 	Login           string `json:"login"`
@@ -49,7 +49,7 @@ func (s *Server) handleListExperts(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"experts": experts})
 }
 
-// handleAdminGetSettings — рамки маршрутизации для администратора (ТЗ п.4.5).
+// handleAdminGetSettings — настройки маршрутизации для администратора.
 func (s *Server) handleAdminGetSettings(w http.ResponseWriter, r *http.Request) {
 	set, err := s.st.GetSettings(r.Context())
 	if err != nil {

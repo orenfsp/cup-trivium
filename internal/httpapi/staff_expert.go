@@ -8,10 +8,9 @@ import (
 	"otklik/internal/domain"
 )
 
-// requireResponsible проверяет, что действует ответственный эксперт.
-// ТЗ п.5 (матрица прав): рабочий статус эксперта, запрос передачи и
-// соисполнители — действия только специалиста; оператор и администратор
-// выполняют свои операции через собственные эндпоинты.
+// requireResponsible проверяет, что действует ответственный эксперт:
+// рабочий статус, запрос передачи и соисполнители — действия только
+// специалиста; у оператора и администратора свои эндпоинты.
 func (s *Server) requireResponsible(w http.ResponseWriter, r *http.Request, id uuid.UUID, p domain.Principal) bool {
 	if p.Role != domain.RoleExpert {
 		writeJSON(w, http.StatusForbidden, errorResp{"this action is available to expert only"})
@@ -118,8 +117,7 @@ func (s *Server) handleRequestTransfer(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCloseNoResponse — закрытие из-за отсутствия ответа заявителя
-// (допустимо из needs_clarification и answer_ready).
-// ТЗ п.5 (матрица прав): закрывает обращения только оператор.
+// (допустимо из needs_clarification и answer_ready). Закрывает только оператор.
 func (s *Server) handleCloseNoResponse(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 	if p.Role != domain.RoleOperator {

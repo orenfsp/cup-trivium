@@ -22,7 +22,7 @@ function afterStaffLogin() {
   $('exPanel').classList.toggle('hidden', me.role !== 'expert');
   $('adPanel').classList.toggle('hidden', me.role !== 'admin');
   if (me.role === 'operator' || me.role === 'admin') { loadQueue(); loadOpAll(); }
-  if (me.role === 'operator' || me.role === 'expert') loadMyStats(); // ТЗ п.5: аналитика «по себе»
+  if (me.role === 'operator' || me.role === 'expert') loadMyStats();
   if (me.role === 'expert') loadExpert();
   if (me.role === 'admin') { loadAdminAppeals(); loadAdminUsers(); loadAdminCats(); loadStats(); loadAdminSettings(); }
 }

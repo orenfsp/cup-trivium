@@ -87,8 +87,8 @@ func (s *Server) handleUploadAttachment(w http.ResponseWriter, r *http.Request) 
 		writeJSON(w, http.StatusUnsupportedMediaType, errorResp{"content type is not allowed"})
 		return
 	}
-	// ТЗ п.3: метаданные вложений (EXIF, геолокация) вырезаются на сервере —
-	// фотографии перекодируются из чистого пиксельного буфера.
+	// EXIF и геолокацию вырезаем на сервере: фотографии перекодируются
+	// из чистого пиксельного буфера.
 	data = stripImageMetadata(data, detected)
 
 	storageName := uuid.NewString() + ".bin"
@@ -149,7 +149,7 @@ func (s *Server) handleDownloadAttachment(w http.ResponseWriter, r *http.Request
 
 // stripImageMetadata перекодирует JPEG/PNG из чистого пиксельного буфера:
 // EXIF-сегменты (включая GPS-координаты съёмки) и прочие метаданные
-// гарантированно не попадают в хранилище (ТЗ п.3: вырезаются на сервере).
+// гарантированно не попадают в хранилище.
 func stripImageMetadata(data []byte, contentType string) []byte {
 	if contentType != "image/jpeg" && contentType != "image/png" {
 		return data // gif/webp/pdf/txt без EXIF-геолокации не перекодируем

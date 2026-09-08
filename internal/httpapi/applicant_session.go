@@ -110,9 +110,9 @@ type appendReq struct {
 	Text string `json:"text"`
 }
 
-// handleApplicantAppend — дописывание обращения после отправки (ТЗ п.3):
-// текст добавляется к описанию, факт фиксируется в аудите, кризисные
-// маркеры в дополнении тоже проверяются.
+// handleApplicantAppend — дописывание обращения после отправки: текст
+// добавляется к описанию, факт фиксируется в аудите, кризисные маркеры
+// в дополнении тоже проверяются.
 func (s *Server) handleApplicantAppend(w http.ResponseWriter, r *http.Request) {
 	p, _ := principalFrom(r.Context())
 	var req appendReq

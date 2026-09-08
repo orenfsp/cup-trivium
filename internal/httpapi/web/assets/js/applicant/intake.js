@@ -1,7 +1,6 @@
 // Анкета нового обращения: тип заявителя, категория/свободный текст,
-// описание, кризисный контакт и уточняющие вопросы с вариантами ответов
-// (ТЗ п.3: необязательные, для маршрутизации, не для допроса).
-// Тон текстов меняется вместе с типом заявителя (ТЗ п.3.1).
+// описание, кризисный контакт и необязательные уточняющие вопросы
+// с вариантами ответов. Тон текстов меняется вместе с типом заявителя.
 import { $, esc, showErr, hideErr } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { registerActions } from '../core/actions.js';
@@ -34,7 +33,6 @@ async function createAppeal() {
   hideErr('apErr');
   const desc = $('apDesc').value.trim();
   if (desc.length < 10) {
-    // Бережная формулировка вместо «ошибка: описание слишком короткое» (ТЗ п.3.1).
     showErr('apErr', new Error(t('Можешь добавить пару деталей? Так будет проще помочь', 'Можете добавить пару деталей? Так будет проще помочь')));
     return;
   }
@@ -77,7 +75,6 @@ async function createAppeal() {
 
 export async function intakeInit() {
   $('apFree').addEventListener('change', syncFree);
-  // Тон переключается вместе с выбором типа заявителя (ТЗ п.3.1).
   $('apType').addEventListener('change', () => applyTone($('apType').value));
   applyTone($('apType').value);
   await loadCategories();
@@ -87,7 +84,7 @@ export async function intakeInit() {
 
 registerActions({
   'create-appeal': createAppeal,
-  // Первый экран (ТЗ п.3): две явные точки входа — подать обращение
+  // Две точки входа с первого экрана: подать обращение
   // и проверить статус по трек-номеру.
   'goto-new': () => $('newAppealCard').scrollIntoView({ behavior: 'smooth', block: 'start' }),
   'goto-track': () => $('trkInput').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' }),

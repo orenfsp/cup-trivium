@@ -8,7 +8,7 @@ import { loadCategories } from '../categories.js';
 
 const shortId = (s) => (s ? String(s).slice(0, 8) : '—');
 
-// ТЗ п.4: аналитика для администратора — объёмы, нагрузка, среднее время.
+// Аналитика для администратора: объёмы, нагрузка, среднее время решения.
 export async function loadStats() {
   try {
     const s = await api('GET', '/api/admin/stats');
@@ -42,7 +42,7 @@ export async function loadAdminAppeals() {
   } catch (e) { $('adAppeals').innerHTML = '<div class="note">' + esc(e.message) + '</div>'; }
 }
 
-// ТЗ п.4.5: рамки маршрутизации — лимит активных обращений на специалиста.
+// Лимит активных обращений на специалиста — рамка маршрутизации.
 export async function loadAdminSettings() {
   try {
     const s = await api('GET', '/api/admin/settings');

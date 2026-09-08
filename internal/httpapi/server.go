@@ -36,7 +36,7 @@ type Server struct {
 	presence *presenceHub
 }
 
-// New собирает маршрутизатор со всеми обработчиками.
+// baseRouter — общий каркас маршрутизатора с базовыми middleware.
 func baseRouter() *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -117,17 +117,17 @@ func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 
 	// ---- Общее для сотрудников: список активных экспертов ----
 	// Нужен и оператору (назначение эксперта), и эксперту (подключение
-	// коллеги-соисполнителя, ТЗ п.3), и админу. Регистрировать этот путь
+	// коллеги-соисполнителя), и админу. Регистрировать этот путь
 	// внутри нескольких групп нельзя: в chi поздняя регистрация перекрывает
 	// раннюю, и оператор получает «insufficient permissions».
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireRole(domain.RoleExpert, domain.RoleOperator, domain.RoleAdmin))
 		r.Get("/api/staff/experts", s.handleListExperts)
-		// ТЗ п.5: выгрузки — оператор и админ по всем обращениям, эксперт по себе.
+		// Выгрузки: оператор и админ — по всем обращениям, эксперт — по себе.
 		r.Get("/api/export/appeals", s.handleExportAppeals)
 	})
 
-	// ---- Персональная аналитика (ТЗ п.5: «по себе») ----
+	// ---- Персональная аналитика ----
 	r.Group(func(r chi.Router) {
 		r.Use(s.requireRole(domain.RoleOperator, domain.RoleExpert))
 		r.Get("/api/mystats", s.handleMyStats)
@@ -170,8 +170,8 @@ func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 		r.Get("/notes", s.handleStaffNotes)
 		r.Post("/notes", s.handleStaffPostNote)
 		r.Get("/events", s.handleStaffEvents)
-		// ТЗ п.4.4 «Одновременная работа»: кто сейчас в карточке
-		// обращения и кто вводит ответ (защита от двойного ответа).
+		// Кто сейчас в карточке обращения и кто вводит ответ
+		// (защита от двойного ответа).
 		r.Get("/presence", s.handlePresenceGet)
 		r.Post("/presence", s.handlePresencePost)
 		r.Post("/attachments", s.handleUploadAttachment)
