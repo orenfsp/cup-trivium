@@ -1,9 +1,12 @@
 package httpapi
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"io/fs"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -15,7 +18,27 @@ func assetsHandler() http.Handler {
 	if err != nil {
 		panic(err)
 	}
-	return http.StripPrefix("/assets/", http.FileServer(http.FS(sub)))
+	fileServer := http.StripPrefix("/assets/", http.FileServer(http.FS(sub)))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// У файлов из embed.FS нулевой modtime, поэтому http.FileServer не выдаёт
+		// Last-Modified/ETag и браузер держит устаревшие JS-модули по эвристике.
+		// ETag по содержимому: пока файл не изменился в новом бинарнике — 304,
+		// изменился — браузер обязан забрать свежую версию.
+		p := strings.TrimPrefix(r.URL.Path, "/assets/")
+		if p != "" && !strings.HasSuffix(p, "/") {
+			if data, err := fs.ReadFile(sub, path.Clean(p)); err == nil {
+				sum := sha256.Sum256(data)
+				etag := `"` + hex.EncodeToString(sum[:8]) + `"`
+				w.Header().Set("Cache-Control", "no-cache")
+				w.Header().Set("ETag", etag)
+				if r.Header.Get("If-None-Match") == etag {
+					w.WriteHeader(http.StatusNotModified)
+					return
+				}
+			}
+		}
+		fileServer.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) indexFor(mode string) http.HandlerFunc {
@@ -27,6 +50,7 @@ func (s *Server) indexFor(mode string) http.HandlerFunc {
 		}
 		page := strings.ReplaceAll(string(data), "__OTKLIK_UI_MODE__", mode)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store") // HTML всегда свежий: он разный для 8080/8081
 		_, _ = w.Write([]byte(page))
 	}
 }
