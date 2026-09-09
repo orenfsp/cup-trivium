@@ -1,9 +1,9 @@
 //go:build integration
 
 // Интеграционные сценарии против чистой PostgreSQL-базы otklik_it_test.
-// Запуск: go test -tags integration ./internal/httpapi
+// Запуск: go test -tags integration ./tests
 // URL базы переопределяется переменной OTKLIK_IT_DATABASE_URL.
-package httpapi
+package tests
 
 import (
 	"bytes"
@@ -11,6 +11,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"image"
+	"image/color"
+	"image/jpeg"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -23,10 +25,14 @@ import (
 
 	"otklik/internal/config"
 	"otklik/internal/db"
+	"otklik/internal/httpapi"
 	"otklik/internal/store"
 )
 
-const itSeedPwd = "otklik-it-pwd"
+const (
+	itSeedPwd           = "otklik-it-pwd"
+	applicantCookieName = "otklik_applicant"
+)
 
 var itDB *sql.DB
 
@@ -81,8 +87,8 @@ func newIT(t *testing.T) *itEnv {
 	return &itEnv{
 		t:     t,
 		st:    st,
-		pub:   New(cfg, st),
-		staff: NewStaff(cfg, st),
+		pub:   httpapi.New(cfg, st),
+		staff: httpapi.NewStaff(cfg, st),
 	}
 }
 
@@ -126,6 +132,22 @@ func (e *itEnv) login(login string) string {
 	e.t.Helper()
 	w := e.mustDo(e.staff, "POST", "/api/auth/login", "", nil,
 		map[string]string{"login": login, "password": itSeedPwd}, http.StatusOK)
+
+	// Кука сессии сотрудника: HttpOnly, SameSite=Lax, Path=/, срок = SessionTTL.
+	for _, c := range w.Result().Cookies() {
+		if c.Name == "otklik_staff" {
+			if !c.HttpOnly {
+				e.t.Error("кука сессии сотрудника должна быть HttpOnly")
+			}
+			if c.SameSite != http.SameSiteLaxMode {
+				e.t.Errorf("SameSite = %v, want Lax", c.SameSite)
+			}
+			if c.Path != "/" || c.MaxAge != 3600 {
+				e.t.Errorf("кука сессии: Path=%q MaxAge=%d, want \"/\" и 3600", c.Path, c.MaxAge)
+			}
+		}
+	}
+
 	var out struct {
 		SessionToken string `json:"session_token"`
 	}
@@ -137,6 +159,7 @@ func (e *itEnv) login(login string) string {
 	}
 	return out.SessionToken
 }
+
 
 // createAppeal создаёт анонимное обращение и возвращает (appealID, трек-номер).
 func (e *itEnv) createAppeal(desc string, crisisContact string) (string, string) {
@@ -163,7 +186,10 @@ func (e *itEnv) applicantCookie(track string) *http.Cookie {
 	w := e.mustDo(e.pub, "POST", "/api/appeals/track", "", nil,
 		map[string]string{"track_number": track}, http.StatusOK)
 	for _, c := range w.Result().Cookies() {
-		if c.Name == applicantCookie {
+		if c.Name == applicantCookieName {
+			if !c.HttpOnly {
+				e.t.Error("кука сессии заявителя должна быть HttpOnly")
+			}
 			return c
 		}
 	}
@@ -223,7 +249,6 @@ func appealStatus(t *testing.T, w *httptest.ResponseRecorder) string {
 	}
 	return a.Status
 }
-
 
 // С1–С3: подача → маршрутизация → работа эксперта → результат заявителя.
 func TestIT_AcceptanceHappyPath(t *testing.T) {
@@ -472,7 +497,7 @@ func TestIT_ExportCSV(t *testing.T) {
 	w := e.mustDo(e.staff, "GET", "/api/export/appeals", admTok, nil, nil, http.StatusOK)
 	body := w.Body.String()
 	if !strings.HasPrefix(body, "\ufeffid,applicant_type,category,status,priority,crisis,assigned_expert,returns,created_at,updated_at\r\n") {
-		t.Errorf("неожиданный заголовок CSV: %q", body[:min(120, len(body))])
+		t.Errorf("неожиданный заголовок CSV: %q", body[:itMin(120, len(body))])
 	}
 	if !strings.Contains(body, appealID) {
 		t.Error("в экспорте нет созданного обращения")
@@ -489,13 +514,41 @@ func TestIT_ExportCSV(t *testing.T) {
 	}
 }
 
-func min(a, b int) int {
+func itMin(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
 }
 
+func testImage() *image.RGBA {
+	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
+	for y := 0; y < 16; y++ {
+		for x := 0; x < 16; x++ {
+			img.SetRGBA(x, y, color.RGBA{R: uint8(x * 16), G: uint8(y * 16), B: 128, A: 255})
+		}
+	}
+	return img
+}
+
+// jpegWithExif собирает валидный JPEG с APP1 EXIF-сегментом сразу после SOI —
+// так реальный фотофайл несёт метаданные (включая GPS).
+func jpegWithExif(t *testing.T) []byte {
+	t.Helper()
+	var orig bytes.Buffer
+	if err := jpeg.Encode(&orig, testImage(), &jpeg.Options{Quality: 90}); err != nil {
+		t.Fatal(err)
+	}
+	payload := append([]byte("Exif\x00\x00"), []byte("MM\x00\x2aFAKE-GPS-DATA")...)
+	segLen := len(payload) + 2 // длина включает само поле длины
+	seg := append([]byte{0xFF, 0xE1, byte(segLen >> 8), byte(segLen)}, payload...)
+	src := orig.Bytes()
+	out := make([]byte, 0, len(src)+len(seg))
+	out = append(out, src[:2]...) // SOI
+	out = append(out, seg...)
+	out = append(out, src[2:]...)
+	return out
+}
 
 // Вложения: заявитель загружает JPEG с EXIF — в хранилище уходит без метаданных;
 // файл доступен заявителю и сотрудникам, чужому заявителю — нет.
@@ -595,3 +648,37 @@ func TestIT_JanitorAutoClose(t *testing.T) {
 	}
 }
 
+// Присутствие: heartbeat оператора и эксперта на карточке обращения;
+// каждый видит других, но не себя; чужой эксперт не проходит проверку доступа.
+func TestIT_Presence(t *testing.T) {
+	e := newIT(t)
+	appealID, _ := e.createAppeal("Проверка индикатора присутствия на карточке", "")
+	opTok, expTok := e.toAnswerReady(appealID)
+
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/presence", opTok, nil,
+		map[string]bool{"typing": false}, http.StatusOK)
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/presence", expTok, nil,
+		map[string]bool{"typing": true}, http.StatusOK)
+
+	// Оператор видит только эксперта — с флагом «печатает».
+	w := e.mustDo(e.staff, "GET", "/api/appeals/"+appealID+"/presence", opTok, nil, nil, http.StatusOK)
+	if body := w.Body.String(); !strings.Contains(body, `"login":"psychologist1"`) || !strings.Contains(body, `"typing":true`) {
+		t.Errorf("оператор должен видеть эксперта с typing=true: %s", body)
+	}
+	if strings.Contains(w.Body.String(), `"login":"operator"`) {
+		t.Errorf("участник не должен видеть сам себя: %s", w.Body.String())
+	}
+
+	// Эксперт видит оператора без флага «печатает».
+	w = e.mustDo(e.staff, "GET", "/api/appeals/"+appealID+"/presence", expTok, nil, nil, http.StatusOK)
+	if body := w.Body.String(); !strings.Contains(body, `"login":"operator"`) || strings.Contains(body, `"typing":true`) {
+		t.Errorf("эксперт должен видеть оператора без typing: %s", body)
+	}
+
+	// Чужой эксперт не допускается к присутствию на обращении.
+	w = e.do(e.staff, "POST", "/api/appeals/"+appealID+"/presence", e.login("lawyer1"), nil,
+		map[string]bool{"typing": true})
+	if w.Code != http.StatusForbidden {
+		t.Errorf("посторонний эксперт в присутствии: код = %d, want 403", w.Code)
+	}
+}

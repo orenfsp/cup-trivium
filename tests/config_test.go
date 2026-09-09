@@ -1,8 +1,10 @@
-package config
+package tests
 
 import (
 	"testing"
 	"time"
+
+	"otklik/internal/config"
 )
 
 func TestLoadDefaults(t *testing.T) {
@@ -10,7 +12,7 @@ func TestLoadDefaults(t *testing.T) {
 		"ATTACHMENTS_DIR", "COOKIE_SECURE", "SESSION_TTL_MIN", "SEED_DEFAULT_PWD"} {
 		t.Setenv(k, "")
 	}
-	cfg := Load()
+	cfg := config.Load()
 	if cfg.ListenAddr != ":8080" {
 		t.Errorf("ListenAddr = %q, want :8080", cfg.ListenAddr)
 	}
@@ -42,7 +44,7 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("SEED_DEFAULT_PWD", "secret-pwd")
 	t.Setenv("COOKIE_SECURE", "true")
 	t.Setenv("SESSION_TTL_MIN", "45")
-	cfg := Load()
+	cfg := config.Load()
 	if cfg.ListenAddr != "127.0.0.1:9000" {
 		t.Errorf("ListenAddr = %q", cfg.ListenAddr)
 	}
@@ -70,7 +72,7 @@ func TestLoadCookieSecureValues(t *testing.T) {
 	cases := map[string]bool{"1": true, "true": true, "0": false, "yes": false, "": false}
 	for v, want := range cases {
 		t.Setenv("COOKIE_SECURE", v)
-		if got := Load().CookieSecure; got != want {
+		if got := config.Load().CookieSecure; got != want {
 			t.Errorf("COOKIE_SECURE=%q: CookieSecure = %v, want %v", v, got, want)
 		}
 	}
@@ -79,7 +81,7 @@ func TestLoadCookieSecureValues(t *testing.T) {
 func TestLoadSessionTTLInvalid(t *testing.T) {
 	for _, v := range []string{"abc", "0", "-5", ""} {
 		t.Setenv("SESSION_TTL_MIN", v)
-		if got := Load().SessionTTL; got != 2*time.Hour {
+		if got := config.Load().SessionTTL; got != 2*time.Hour {
 			t.Errorf("SESSION_TTL_MIN=%q: SessionTTL = %v, want default 2h", v, got)
 		}
 	}

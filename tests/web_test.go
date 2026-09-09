@@ -1,4 +1,4 @@
-package httpapi
+package tests
 
 import (
 	"encoding/json"
@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"otklik/internal/config"
+	"otklik/internal/httpapi"
 )
 
 func testCfg() config.Config {
@@ -18,7 +19,7 @@ func testCfg() config.Config {
 // ТЗ 4.2: каждая роль — отдельные страницы; HTML не кэшируется (он разный для 8080/8081),
 // плейсхолдер режима обязательно подставляется.
 func TestApplicantPagesServe(t *testing.T) {
-	h := New(testCfg(), nil)
+	h := httpapi.New(testCfg(), nil)
 	for _, p := range []string{"/", "/new", "/track", "/appeal"} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", p, nil))
@@ -43,7 +44,7 @@ func TestApplicantPagesServe(t *testing.T) {
 }
 
 func TestStaffPagesServe(t *testing.T) {
-	h := NewStaff(testCfg(), nil)
+	h := httpapi.NewStaff(testCfg(), nil)
 	for _, p := range []string{"/", "/login", "/operator", "/expert", "/admin", "/detail", "/detail/00000000-0000-0000-0000-000000000000"} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", p, nil))
@@ -62,7 +63,7 @@ func TestStaffPagesServe(t *testing.T) {
 }
 
 func TestUnknownPage404(t *testing.T) {
-	for _, h := range []http.Handler{New(testCfg(), nil), NewStaff(testCfg(), nil)} {
+	for _, h := range []http.Handler{httpapi.New(testCfg(), nil), httpapi.NewStaff(testCfg(), nil)} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", "/no-such-page", nil))
 		if w.Code != http.StatusNotFound {
@@ -72,7 +73,7 @@ func TestUnknownPage404(t *testing.T) {
 }
 
 func TestHealthOnBothPorts(t *testing.T) {
-	for _, h := range []http.Handler{New(testCfg(), nil), NewStaff(testCfg(), nil)} {
+	for _, h := range []http.Handler{httpapi.New(testCfg(), nil), httpapi.NewStaff(testCfg(), nil)} {
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, httptest.NewRequest("GET", "/api/health", nil))
 		if w.Code != http.StatusOK {
@@ -90,7 +91,7 @@ func TestHealthOnBothPorts(t *testing.T) {
 
 // Публичные справочники доступны без аутентификации и не требуют БД.
 func TestPublicReferenceData(t *testing.T) {
-	h := New(testCfg(), nil)
+	h := httpapi.New(testCfg(), nil)
 
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest("GET", "/api/intake-questions", nil))
@@ -113,7 +114,7 @@ func TestPublicReferenceData(t *testing.T) {
 	w = httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest("GET", "/api/help/crisis", nil))
 	if w.Code != http.StatusOK {
-		t.Fatalf("help/crisis: код = %d", w.Code)
+		t.Fatalf("crisis-help: код = %d", w.Code)
 	}
 	var c struct {
 		Contacts []map[string]any `json:"contacts"`
@@ -127,7 +128,7 @@ func TestPublicReferenceData(t *testing.T) {
 }
 
 func TestAssetsETagCaching(t *testing.T) {
-	h := New(testCfg(), nil)
+	h := httpapi.New(testCfg(), nil)
 
 	w1 := httptest.NewRecorder()
 	h.ServeHTTP(w1, httptest.NewRequest("GET", "/assets/vendor/qrcode.min.js", nil))
@@ -159,14 +160,14 @@ func TestAssetsETagCaching(t *testing.T) {
 
 // Защищённые эндпоинты без аутентификации отдают 401, а не 5xx.
 func TestUnauthenticatedGuards(t *testing.T) {
-	pub := New(testCfg(), nil)
+	pub := httpapi.New(testCfg(), nil)
 	w := httptest.NewRecorder()
 	pub.ServeHTTP(w, httptest.NewRequest("GET", "/api/appeals/me/", nil))
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("applicant guard: код = %d, want 401", w.Code)
 	}
 
-	staff := NewStaff(testCfg(), nil)
+	staff := httpapi.NewStaff(testCfg(), nil)
 	guards := []string{
 		"/api/operator/queue", "/api/admin/stats", "/api/expert/appeals",
 		"/api/appeals/00000000-0000-0000-0000-000000000000/",
@@ -180,10 +181,27 @@ func TestUnauthenticatedGuards(t *testing.T) {
 	}
 }
 
+// Без куки /api/me отвечает анонимно — страница заявителя рендерится до входа.
+func TestHandleMeAnonymous(t *testing.T) {
+	h := httpapi.New(testCfg(), nil)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, httptest.NewRequest("GET", "/api/me", nil))
+	if w.Code != http.StatusOK {
+		t.Fatalf("код = %d, want 200", w.Code)
+	}
+	var out map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out["role"] != "anonymous" {
+		t.Errorf("role = %v, want anonymous", out["role"])
+	}
+}
+
 // Валидация создания обращения отсекает мусор до обращения к хранилищу,
 // поэтому тест не требует БД.
 func TestCreateAppealValidation(t *testing.T) {
-	h := New(testCfg(), nil)
+	h := httpapi.New(testCfg(), nil)
 	post := func(payload string) int {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest("POST", "/api/appeals", strings.NewReader(payload))
@@ -206,7 +224,7 @@ func TestCreateAppealValidation(t *testing.T) {
 }
 
 func TestVerifyTrackRequiresNumber(t *testing.T) {
-	h := New(testCfg(), nil)
+	h := httpapi.New(testCfg(), nil)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("POST", "/api/appeals/track", strings.NewReader(`{"track_number":"  "}`))
 	r.Header.Set("Content-Type", "application/json")
