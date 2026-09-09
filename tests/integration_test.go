@@ -527,6 +527,22 @@ func TestIT_ExportCSV(t *testing.T) {
 	if strings.Contains(w.Body.String(), appealID) {
 		t.Error("эксперту выгружено чужое обращение")
 	}
+
+	// Оператор получает только обращения, с которыми работал сам
+	// (назначал специалиста или отклонял), а не весь массив программы.
+	opTok := e.login("operator")
+	w = e.mustDo(e.staff, "GET", "/api/export/appeals", opTok, nil, nil, http.StatusOK)
+	if strings.Contains(w.Body.String(), appealID) {
+		t.Error("оператору выгружено обращение, с которым он не работал")
+	}
+
+	// После назначения специалиста этим оператором обращение попадает в его выгрузку.
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/assign", opTok, nil,
+		map[string]string{"expert_id": e.expertID("psychologist1")}, http.StatusOK)
+	w = e.mustDo(e.staff, "GET", "/api/export/appeals", opTok, nil, nil, http.StatusOK)
+	if !strings.Contains(w.Body.String(), appealID) {
+		t.Error("после назначения обращение не попало в выгрузку оператора")
+	}
 }
 
 func itMin(a, b int) int {

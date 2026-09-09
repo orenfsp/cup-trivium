@@ -211,6 +211,48 @@ type AdminAppealMeta struct {
 	GroupOverloaded  bool      `json:"group_overloaded"`
 }
 
+// ListOperatorWorkedAppealsMeta — обращения, с которыми оператор реально
+// работал: назначал специалиста (событие 'assign') или сам отклонял
+// (событие 'status' → 'rejected'). Обращения, просто прошедшие мимо него
+// в общей очереди, оператору не выгружаются.
+func (st *Store) ListOperatorWorkedAppealsMeta(ctx context.Context, userID uuid.UUID) ([]AdminAppealMeta, error) {
+	set, err := st.GetSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := st.DB.QueryContext(ctx, `
+		SELECT a.id, a.applicant_type, c.name, a.status, a.priority, a.crisis_detected,
+		       EXISTS (SELECT 1 FROM crisis_contacts cc WHERE cc.appeal_id = a.id),
+		       u.login, a.return_count, a.version, a.created_at, a.updated_at,
+		       `+fmt.Sprintf(routingFlagsSQL, set.ExpertActiveLimit)+`
+		FROM appeals a
+		LEFT JOIN categories c ON c.id = a.category_id
+		LEFT JOIN users u ON u.id = a.assigned_expert_id
+		WHERE EXISTS (
+			SELECT 1 FROM appeal_events e
+			WHERE e.appeal_id = a.id AND e.actor_id = $1
+			  AND (e.event_type = 'assign'
+			       OR (e.event_type = 'status' AND e.new_value = 'rejected'))
+		)
+		ORDER BY a.created_at DESC`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AdminAppealMeta
+	for rows.Next() {
+		var m AdminAppealMeta
+		if err := rows.Scan(&m.ID, &m.ApplicantType, &m.CategoryName, &m.Status,
+			&m.Priority, &m.CrisisDetected, &m.HasCrisisContact, &m.ExpertLogin,
+			&m.ReturnCount, &m.Version, &m.CreatedAt, &m.UpdatedAt,
+			&m.RoutingGroup, &m.NoExpertInGroup, &m.GroupOverloaded); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
+	}
+	return out, rows.Err()
+}
+
 func (st *Store) ListAppealsMeta(ctx context.Context) ([]AdminAppealMeta, error) {
 	set, err := st.GetSettings(ctx)
 	if err != nil {

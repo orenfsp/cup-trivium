@@ -149,6 +149,19 @@ func (s *Server) handleExportAppeals(w http.ResponseWriter, r *http.Request) {
 				it.Status, it.Priority, boolStr(it.CrisisDetected), "",
 				strconv.Itoa(it.ReturnCount), it.CreatedAt.Format("2006-01-02 15:04"), it.UpdatedAt.Format("2006-01-02 15:04"))
 		}
+	} else if p.Role == domain.RoleOperator {
+		// Оператор выгружает только обращения, с которыми работал сам:
+		// назначал специалиста или отклонял, — а не весь массив программы.
+		items, err := s.st.ListOperatorWorkedAppealsMeta(r.Context(), p.UserID)
+		if err != nil {
+			writeErr(w, err)
+			return
+		}
+		for _, it := range items {
+			row(it.ID.String(), it.ApplicantType, deref(it.CategoryName), it.Status, it.Priority,
+				boolStr(it.CrisisDetected), deref(it.ExpertLogin),
+				strconv.Itoa(it.ReturnCount), it.CreatedAt.Format("2006-01-02 15:04"), it.UpdatedAt.Format("2006-01-02 15:04"))
+		}
 	} else {
 		items, err := s.st.ListAppealsMeta(r.Context())
 		if err != nil {
