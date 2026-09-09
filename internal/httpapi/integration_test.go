@@ -1,0 +1,597 @@
+//go:build integration
+
+// Интеграционные сценарии против чистой PostgreSQL-базы otklik_it_test.
+// Запуск: go test -tags integration ./internal/httpapi
+// URL базы переопределяется переменной OTKLIK_IT_DATABASE_URL.
+package httpapi
+
+import (
+	"bytes"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"image"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"otklik/internal/config"
+	"otklik/internal/db"
+	"otklik/internal/store"
+)
+
+const itSeedPwd = "otklik-it-pwd"
+
+var itDB *sql.DB
+
+func itDatabaseURL() string {
+	if u := os.Getenv("OTKLIK_IT_DATABASE_URL"); u != "" {
+		return u
+	}
+	return "postgres://otklik:otklik@localhost:5432/otklik_it_test?sslmode=disable"
+}
+
+// itSetup один раз за прогон пересоздаёт схему, накатывает миграции и сид.
+func itSetup(t *testing.T) *sql.DB {
+	t.Helper()
+	if itDB != nil {
+		return itDB
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	d, err := db.Open(ctx, itDatabaseURL())
+	if err != nil {
+		t.Fatalf("не удалось подключиться к тестовой БД %s: %v (поднять: docker compose up -d db)", itDatabaseURL(), err)
+	}
+	if _, err := d.ExecContext(ctx, `DROP SCHEMA IF EXISTS public CASCADE; CREATE SCHEMA public;`); err != nil {
+		t.Fatalf("reset schema: %v", err)
+	}
+	if err := db.Migrate(ctx, d); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	if err := db.Seed(ctx, d, itSeedPwd); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	itDB = d
+	return d
+}
+
+// itEnv — изолированные HTTP-инстансы (свежие rate-limiter'ы) поверх общей БД.
+type itEnv struct {
+	t     *testing.T
+	st    *store.Store
+	pub   http.Handler
+	staff http.Handler
+}
+
+func newIT(t *testing.T) *itEnv {
+	t.Helper()
+	d := itSetup(t)
+	st := store.New(d)
+	cfg := config.Config{
+		SessionTTL:     time.Hour,
+		AttachmentsDir: t.TempDir(),
+	}
+	return &itEnv{
+		t:     t,
+		st:    st,
+		pub:   New(cfg, st),
+		staff: NewStaff(cfg, st),
+	}
+}
+
+func (e *itEnv) do(h http.Handler, method, path, bearer string, cookie *http.Cookie, body any) *httptest.ResponseRecorder {
+	e.t.Helper()
+	var rd *bytes.Reader
+	if body != nil {
+		raw, err := json.Marshal(body)
+		if err != nil {
+			e.t.Fatal(err)
+		}
+		rd = bytes.NewReader(raw)
+	} else {
+		rd = bytes.NewReader(nil)
+	}
+	r := httptest.NewRequest(method, path, rd)
+	if body != nil {
+		r.Header.Set("Content-Type", "application/json")
+	}
+	if bearer != "" {
+		r.Header.Set("Authorization", "Bearer "+bearer)
+	}
+	if cookie != nil {
+		r.AddCookie(cookie)
+	}
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	return w
+}
+
+func (e *itEnv) mustDo(h http.Handler, method, path, bearer string, cookie *http.Cookie, body any, wantCode int) *httptest.ResponseRecorder {
+	e.t.Helper()
+	w := e.do(h, method, path, bearer, cookie, body)
+	if w.Code != wantCode {
+		e.t.Fatalf("%s %s: код = %d, want %d, тело: %s", method, path, w.Code, wantCode, w.Body.String())
+	}
+	return w
+}
+
+func (e *itEnv) login(login string) string {
+	e.t.Helper()
+	w := e.mustDo(e.staff, "POST", "/api/auth/login", "", nil,
+		map[string]string{"login": login, "password": itSeedPwd}, http.StatusOK)
+	var out struct {
+		SessionToken string `json:"session_token"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		e.t.Fatal(err)
+	}
+	if out.SessionToken == "" {
+		e.t.Fatal("session_token пуст")
+	}
+	return out.SessionToken
+}
+
+// createAppeal создаёт анонимное обращение и возвращает (appealID, трек-номер).
+func (e *itEnv) createAppeal(desc string, crisisContact string) (string, string) {
+	e.t.Helper()
+	w := e.mustDo(e.pub, "POST", "/api/appeals", "", nil,
+		map[string]any{
+			"applicant_type": "schoolchild",
+			"category_id":    e.categoryID(),
+			"description":    desc,
+			"crisis_contact": crisisContact,
+		}, http.StatusCreated)
+	var out struct {
+		AppealID    string `json:"appeal_id"`
+		TrackNumber string `json:"track_number"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		e.t.Fatal(err)
+	}
+	return out.AppealID, out.TrackNumber
+}
+
+func (e *itEnv) applicantCookie(track string) *http.Cookie {
+	e.t.Helper()
+	w := e.mustDo(e.pub, "POST", "/api/appeals/track", "", nil,
+		map[string]string{"track_number": track}, http.StatusOK)
+	for _, c := range w.Result().Cookies() {
+		if c.Name == applicantCookie {
+			return c
+		}
+	}
+	e.t.Fatal("кука сессии заявителя не выдана")
+	return nil
+}
+
+func (e *itEnv) categoryID() string {
+	e.t.Helper()
+	w := e.mustDo(e.pub, "GET", "/api/categories", "", nil, nil, http.StatusOK)
+	var out struct {
+		Categories []struct {
+			ID uuid.UUID `json:"id"`
+		} `json:"categories"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil || len(out.Categories) == 0 {
+		e.t.Fatalf("категории не получены: %v %s", err, w.Body.String())
+	}
+	return out.Categories[0].ID.String()
+}
+
+func (e *itEnv) expertID(login string) string {
+	e.t.Helper()
+	users, err := e.st.ListUsers(context.Background())
+	if err != nil {
+		e.t.Fatal(err)
+	}
+	for _, u := range users {
+		if u.Login == login && u.Role == "expert" {
+			return u.ID.String()
+		}
+	}
+	e.t.Fatalf("эксперт %s не найден в сидах", login)
+	return ""
+}
+
+// toAnswerReady проводит обращение по пути new→assigned→in_progress→answer_ready.
+func (e *itEnv) toAnswerReady(appealID string) (opTok, expTok string) {
+	e.t.Helper()
+	opTok = e.login("operator")
+	expTok = e.login("psychologist1")
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/assign", opTok, nil,
+		map[string]string{"expert_id": e.expertID("psychologist1")}, http.StatusOK)
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/take", expTok, nil, nil, http.StatusOK)
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/recommendation", expTok, nil,
+		map[string]string{"recommendation": "Рекомендация: обратиться к школьному психологу"}, http.StatusOK)
+	return opTok, expTok
+}
+
+func appealStatus(t *testing.T, w *httptest.ResponseRecorder) string {
+	t.Helper()
+	var a struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &a); err != nil {
+		t.Fatalf("не удалось разобрать ответ: %v %s", err, w.Body.String())
+	}
+	return a.Status
+}
+
+
+// С1–С3: подача → маршрутизация → работа эксперта → результат заявителя.
+func TestIT_AcceptanceHappyPath(t *testing.T) {
+	e := newIT(t)
+	appealID, track := e.createAppeal("Меня обижают в классе уже второй месяц, помогите пожалуйста", "")
+
+	// Заявитель входит по трек-номеру и видит объяснение статуса.
+	w := e.mustDo(e.pub, "GET", "/api/appeals/me/", "", e.applicantCookie(track), nil, http.StatusOK)
+	if got := appealStatus(t, w); got != "new" {
+		t.Fatalf("статус после создания = %q, want new", got)
+	}
+	var view struct {
+		StatusExplanation string `json:"status_explanation"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &view); err != nil {
+		t.Fatal(err)
+	}
+	if view.StatusExplanation == "" {
+		t.Error("объяснение статуса для заявителя пусто")
+	}
+
+	// Оператор видит обращение в очереди и назначает эксперта.
+	opTok, _ := e.toAnswerReady(appealID)
+
+	w = e.mustDo(e.staff, "GET", "/api/appeals/"+appealID+"/", opTok, nil, nil, http.StatusOK)
+	if got := appealStatus(t, w); got != "answer_ready" {
+		t.Fatalf("статус после рекомендации = %q, want answer_ready", got)
+	}
+
+	// Заявитель видит рекомендацию и подтверждает помощь.
+	w = e.mustDo(e.pub, "GET", "/api/appeals/me/", "", e.applicantCookie(track), nil, http.StatusOK)
+	if !strings.Contains(w.Body.String(), "Рекомендация: обратиться к школьному психологу") {
+		t.Errorf("рекомендация не видна заявителю: %s", w.Body.String())
+	}
+	w = e.mustDo(e.pub, "POST", "/api/appeals/me/result", "", e.applicantCookie(track),
+		map[string]any{"helped": true}, http.StatusOK)
+	if got := appealStatus(t, w); got != "completed" {
+		t.Fatalf("статус после «помогло» = %q, want completed", got)
+	}
+
+	// Оценка работы сохраняется.
+	e.mustDo(e.pub, "POST", "/api/appeals/me/feedback", "", e.applicantCookie(track),
+		map[string]any{"rating": 5, "comment": "спасибо"}, http.StatusOK)
+
+	// В терминальном статусе чат закрыт.
+	w = e.do(e.pub, "POST", "/api/appeals/me/messages", "", e.applicantCookie(track),
+		map[string]string{"text": "ещё вопрос"})
+	if w.Code != http.StatusConflict {
+		t.Errorf("сообщение в закрытое обращение: код = %d, want 409", w.Code)
+	}
+}
+
+// С4: уточняющий вопрос — заявитель отвечает в чате; жалоба уходит оператору;
+// оператор закрывает обращение без ответа.
+func TestIT_ClarificationChatAndComplaint(t *testing.T) {
+	e := newIT(t)
+	appealID, track := e.createAppeal("Произошёл конфликт с одноклассниками на переменке", "")
+
+	opTok := e.login("operator")
+	expTok := e.login("psychologist1")
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/assign", opTok, nil,
+		map[string]string{"expert_id": e.expertID("psychologist1")}, http.StatusOK)
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/take", expTok, nil, nil, http.StatusOK)
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/clarify", expTok, nil, nil, http.StatusOK)
+
+	w := e.mustDo(e.pub, "GET", "/api/appeals/me/", "", e.applicantCookie(track), nil, http.StatusOK)
+	if got := appealStatus(t, w); got != "needs_clarification" {
+		t.Fatalf("статус = %q, want needs_clarification", got)
+	}
+
+	// Заявитель дописывает в чат; сотрудник читает переписку.
+	ac := e.applicantCookie(track)
+	e.mustDo(e.pub, "POST", "/api/appeals/me/messages", "", ac,
+		map[string]string{"text": "Это было на уроке физкультуры"}, http.StatusCreated)
+	w = e.mustDo(e.staff, "GET", "/api/appeals/"+appealID+"/messages", expTok, nil, nil, http.StatusOK)
+	if !strings.Contains(w.Body.String(), "на уроке физкультуры") {
+		t.Errorf("сообщение заявителя не видно эксперту: %s", w.Body.String())
+	}
+
+	// Жалоба доступна оператору.
+	e.mustDo(e.pub, "POST", "/api/appeals/me/complaint", "", ac,
+		map[string]string{"text": "эксперт отвечал слишком долго"}, http.StatusCreated)
+	e.mustDo(e.staff, "GET", "/api/operator/complaints", opTok, nil, nil, http.StatusOK)
+
+	// Оператор закрывает обращение без ответа заявителя.
+	w = e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/close-no-response", opTok, nil, nil, http.StatusOK)
+	if got := appealStatus(t, w); got != "closed_no_response" {
+		t.Fatalf("статус = %q, want closed_no_response", got)
+	}
+}
+
+// С5: цикл возвратов ограничен настройкой max_returns (по умолчанию 2).
+func TestIT_ReturnCycleLimit(t *testing.T) {
+	e := newIT(t)
+	appealID, track := e.createAppeal("Кибербуллинг в школьном чате, присылают обидные картинки", "")
+	ac := e.applicantCookie(track)
+
+	// Два полноценных цикла «не помогло».
+	for i := 1; i <= 2; i++ {
+		e.toAnswerReady(appealID)
+		w := e.mustDo(e.pub, "POST", "/api/appeals/me/result", "", ac,
+			map[string]any{"helped": false, "reason": "не помогло"}, http.StatusOK)
+		if got := appealStatus(t, w); got != "returned" {
+			t.Fatalf("цикл %d: статус = %q, want returned", i, got)
+		}
+	}
+
+	// Третий возврат блокируется лимитом.
+	e.toAnswerReady(appealID)
+	w := e.do(e.pub, "POST", "/api/appeals/me/result", "", ac,
+		map[string]any{"helped": false, "reason": "снова не помогло"})
+	if w.Code != http.StatusConflict {
+		t.Fatalf("третий возврат: код = %d, want 409, тело: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "лимит возвратов") {
+		t.Errorf("заявитель должен получить объяснение про лимит: %s", w.Body.String())
+	}
+
+	// Обращение завершают жалобой — альтернатива по ТЗ 5.1.
+	e.mustDo(e.pub, "POST", "/api/appeals/me/complaint", "", ac,
+		map[string]string{"text": "передайте другому специалисту"}, http.StatusCreated)
+}
+
+// ТЗ «Кризисные обращения»: детект по маркерам, справочник помощи заявителю,
+// контакт для связи виден оператору и не виден эксперту.
+func TestIT_CrisisFlow(t *testing.T) {
+	e := newIT(t)
+	appealID, track := e.createAppeal("Я больше не могу, иногда не хочу жить, всё тяжело", "@tg: pupil_help")
+
+	w := e.do(e.pub, "POST", "/api/appeals", "", nil,
+		map[string]any{"applicant_type": "schoolchild", "category_id": e.categoryID(),
+			"description": "просто конфликт, ничего серьёзного"})
+	if w.Code != http.StatusCreated {
+		t.Fatalf("повторное создание: код = %d", w.Code)
+	}
+	if strings.Contains(w.Body.String(), `"crisis_help"`) {
+		t.Error("у некризисного обращения не должно быть crisis_help")
+	}
+
+	// У кризисного — справочник в ответе и во view заявителя.
+	ac := e.applicantCookie(track)
+	w = e.mustDo(e.pub, "GET", "/api/appeals/me/", "", ac, nil, http.StatusOK)
+	if !strings.Contains(w.Body.String(), "8-800-2000-122") {
+		t.Errorf("заявителю не показан телефон доверия: %s", w.Body.String())
+	}
+
+	opTok := e.login("operator")
+	w = e.mustDo(e.staff, "GET", "/api/appeals/"+appealID+"/", opTok, nil, nil, http.StatusOK)
+	if !strings.Contains(w.Body.String(), `"crisis_detected":true`) {
+		t.Errorf("оператору не виден флаг кризиса: %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "@tg: pupil_help") {
+		t.Errorf("оператору не виден контакт при кризисе: %s", w.Body.String())
+	}
+
+	// Эксперт видит кризис, но не контакт (ТЗ, п.4).
+	expTok := e.login("psychologist1")
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/assign", opTok, nil,
+		map[string]string{"expert_id": e.expertID("psychologist1")}, http.StatusOK)
+	w = e.mustDo(e.staff, "GET", "/api/appeals/"+appealID+"/", expTok, nil, nil, http.StatusOK)
+	if !strings.Contains(w.Body.String(), `"crisis_detected":true`) {
+		t.Errorf("эксперту не виден флаг кризиса: %s", w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "@tg: pupil_help") {
+		t.Error("эксперт не должен видеть контакт заявителя")
+	}
+}
+
+// Матрица прав: у каждой роли — только свои действия.
+func TestIT_RoleRights(t *testing.T) {
+	e := newIT(t)
+	appealID, _ := e.createAppeal("Нужна консультация по сложной ситуации в школе", "")
+	opTok, expTok := e.toAnswerReady(appealID)
+	admTok := e.login("admin")
+
+	check := func(tok, method, path string, body any, wantCode int) {
+		t.Helper()
+		w := e.do(e.staff, method, path, tok, nil, body)
+		if w.Code != wantCode {
+			t.Errorf("%s %s: код = %d, want %d, тело: %s", method, path, w.Code, wantCode, w.Body.String())
+		}
+	}
+
+	// Эксперт не оператор и не админ.
+	check(expTok, "GET", "/api/operator/queue", nil, http.StatusForbidden)
+	check(expTok, "GET", "/api/admin/stats", nil, http.StatusForbidden)
+	// Оператор не эксперт и не админ.
+	check(opTok, "GET", "/api/expert/appeals", nil, http.StatusForbidden)
+	check(opTok, "GET", "/api/admin/users", nil, http.StatusForbidden)
+	check(opTok, "POST", "/api/appeals/"+appealID+"/take", nil, http.StatusForbidden)
+	// Админ: статистика доступна, но действия оператора — нет.
+	check(admTok, "GET", "/api/admin/stats", nil, http.StatusOK)
+	check(admTok, "POST", "/api/appeals/"+appealID+"/reject",
+		map[string]string{"reason": "не по профилю"}, http.StatusForbidden)
+
+	// Эксперт не отвечает за чужое обращение — доступ к карточке закрыт.
+	other, _ := e.createAppeal("Другое обращение без назначения эксперта", "")
+	check(expTok, "GET", "/api/appeals/"+other+"/", nil, http.StatusForbidden)
+
+	// Эксперт-не-участник не может подключиться к переписке.
+	check(e.login("lawyer1"), "POST", "/api/appeals/"+appealID+"/take", nil, http.StatusForbidden)
+
+	// Оператор отклоняет обращение из new — до всякой работы эксперта.
+	check(opTok, "POST", "/api/appeals/"+other+"/reject",
+		map[string]string{"reason": "обращение вне компетенции"}, http.StatusOK)
+}
+
+// ТЗ 4.7: перебор трек-номеров ограничен (5/мин с задержкой).
+func TestIT_TrackBruteforceRateLimit(t *testing.T) {
+	e := newIT(t)
+	bad := map[string]string{"track_number": "ОШИБКА-0001"}
+	for i := 1; i <= 5; i++ {
+		w := e.do(e.pub, "POST", "/api/appeals/track", "", nil, bad)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("попытка %d: код = %d, want 404", i, w.Code)
+		}
+	}
+	w := e.do(e.pub, "POST", "/api/appeals/track", "", nil, bad)
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("шестая попытка: код = %d, want 429", w.Code)
+	}
+}
+
+// Подбор пароля сотрудника: 10 неудач в минуту — блокировка.
+func TestIT_LoginBruteforceRateLimit(t *testing.T) {
+	e := newIT(t)
+	bad := map[string]string{"login": "admin", "password": "wrong-password"}
+	for i := 1; i <= 10; i++ {
+		w := e.do(e.staff, "POST", "/api/auth/login", "", nil, bad)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("попытка %d: код = %d, want 401", i, w.Code)
+		}
+	}
+	w := e.do(e.staff, "POST", "/api/auth/login", "", nil, bad)
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("11-я попытка: код = %d, want 429", w.Code)
+	}
+}
+
+// CSV-экспорт: BOM для Excel, фиксированный заголовок, строка на обращение.
+func TestIT_ExportCSV(t *testing.T) {
+	e := newIT(t)
+	appealID, _ := e.createAppeal("Обращение для проверки экспорта в CSV", "")
+	admTok := e.login("admin")
+
+	w := e.mustDo(e.staff, "GET", "/api/export/appeals", admTok, nil, nil, http.StatusOK)
+	body := w.Body.String()
+	if !strings.HasPrefix(body, "\ufeffid,applicant_type,category,status,priority,crisis,assigned_expert,returns,created_at,updated_at\r\n") {
+		t.Errorf("неожиданный заголовок CSV: %q", body[:min(120, len(body))])
+	}
+	if !strings.Contains(body, appealID) {
+		t.Error("в экспорте нет созданного обращения")
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/csv") {
+		t.Errorf("Content-Type = %q", ct)
+	}
+
+	// Эксперт получает только свои обращения.
+	expTok := e.login("lawyer1")
+	w = e.mustDo(e.staff, "GET", "/api/export/appeals", expTok, nil, nil, http.StatusOK)
+	if strings.Contains(w.Body.String(), appealID) {
+		t.Error("эксперту выгружено чужое обращение")
+	}
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+
+// Вложения: заявитель загружает JPEG с EXIF — в хранилище уходит без метаданных;
+// файл доступен заявителю и сотрудникам, чужому заявителю — нет.
+func TestIT_AttachmentsE2E(t *testing.T) {
+	e := newIT(t)
+	appealID, track := e.createAppeal("Прикладываю скриншот переписки из чата класса", "")
+	ac := e.applicantCookie(track)
+
+	jpegBytes := jpegWithExif(t)
+	upload := func(h http.Handler, path, bearer string, cookie *http.Cookie, content []byte, filename, contentType string) *httptest.ResponseRecorder {
+		var buf bytes.Buffer
+		mw := multipart.NewWriter(&buf)
+		fw, _ := mw.CreateFormFile("file", filename)
+		_, _ = fw.Write(content)
+		_ = mw.Close()
+		r := httptest.NewRequest("POST", path, &buf)
+		r.Header.Set("Content-Type", mw.FormDataContentType())
+		if bearer != "" {
+			r.Header.Set("Authorization", "Bearer "+bearer)
+		}
+		if cookie != nil {
+			r.AddCookie(cookie)
+		}
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+
+	w := upload(e.pub, "/api/appeals/me/attachments", "", ac, jpegBytes, "photo.jpg", "image/jpeg")
+	if w.Code != http.StatusCreated {
+		t.Fatalf("загрузка вложения: код = %d, тело: %s", w.Code, w.Body.String())
+	}
+	var att struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &att); err != nil {
+		t.Fatal(err)
+	}
+
+	// Запрещённый тип отсекается детектором содержимого.
+	exe := []byte{'M', 'Z', 0x00, 0x01, 0x02, 0x00, 0x00, 0x00, 0xFF, 0x00, 0x0A, 0x00}
+	w = upload(e.pub, "/api/appeals/me/attachments", "", ac, exe, "virus.exe", "application/octet-stream")
+	if w.Code != http.StatusUnsupportedMediaType {
+		t.Errorf("загрузка exe: код = %d, want 415", w.Code)
+	}
+
+	// Заявитель скачивает: файл декодируется, EXIF удалён.
+	w = e.mustDo(e.pub, "GET", "/api/appeals/me/attachments/"+att.ID, "", ac, nil, http.StatusOK)
+	if got := w.Body.Bytes(); bytes.Contains(got, []byte("Exif\x00\x00")) {
+		t.Error("EXIF выжил при скачивании заявителем")
+	} else if _, format, err := image.Decode(bytes.NewReader(got)); err != nil || format != "jpeg" {
+		t.Errorf("скачанный файл не декодируется как JPEG: %v %s", err, format)
+	}
+
+	// Оператор получает тот же файл по служебному пути.
+	opTok := e.login("operator")
+	e.mustDo(e.staff, "GET", "/api/appeals/"+appealID+"/attachments/"+att.ID, opTok, nil, nil, http.StatusOK)
+
+	// Чужой заявитель не может скачать вложение.
+	_, otherTrack := e.createAppeal("Другое обращение — проверка изоляции вложений", "")
+	other := e.applicantCookie(otherTrack)
+	w = e.do(e.pub, "GET", "/api/appeals/me/attachments/"+att.ID, "", other, nil)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("чужой заявитель скачал вложение: код = %d, want 404", w.Code)
+	}
+}
+
+// ТЗ 5.1: janitor закрывает обращения без ответа заявителя старше no_response_days.
+func TestIT_JanitorAutoClose(t *testing.T) {
+	e := newIT(t)
+	appealID, _ := e.createAppeal("Обращение, на которое заявитель так и не вернётся", "")
+	e.toAnswerReady(appealID) // автозакрытие работает из needs_clarification/answer_ready
+
+	// Сдвигаем создание в прошлое дальше порога no_response_days (14 по умолчанию).
+	ctx := context.Background()
+	if _, err := e.st.DB.ExecContext(ctx,
+		`UPDATE appeals SET created_at = now() - interval '30 days' WHERE id = $1`, appealID); err != nil {
+		t.Fatal(err)
+	}
+
+	closed, err := e.st.AutoCloseNoResponse(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if closed < 1 {
+		t.Fatalf("janitor закрыл %d обращений, want >= 1", closed)
+	}
+
+	// В одном прогоне повторный запуск не закрывает уже терминальные обращения.
+	if _, err := e.st.AutoCloseNoResponse(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	w := e.do(e.staff, "GET", "/api/appeals/"+appealID+"/", e.login("operator"), nil, nil)
+	if got := appealStatus(t, w); got != "closed_no_response" {
+		t.Fatalf("статус после janitor = %q, want closed_no_response", got)
+	}
+}
+
