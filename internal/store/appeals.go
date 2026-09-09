@@ -34,16 +34,18 @@ type Appeal struct {
 	UpdatedAt         time.Time
 }
 
-const appealCols = `a.id, a.track_hash, a.applicant_type, a.category_id, a.free_text_mode,
+const appealCols = `a.id, a.track_hash, a.applicant_type, a.category_id, c.name, a.free_text_mode,
 	a.description, a.status, a.priority, a.crisis_detected, a.assigned_expert_id,
 	u.login, a.rejection_reason, a.recommendation, a.return_count,
 	a.transfer_requested, a.version, a.idempotency_key, a.created_at, a.updated_at`
 
-const appealFrom = ` FROM appeals a LEFT JOIN users u ON u.id = a.assigned_expert_id `
+const appealFrom = ` FROM appeals a
+	LEFT JOIN categories c ON c.id = a.category_id
+	LEFT JOIN users u ON u.id = a.assigned_expert_id `
 
 func scanAppeal(s interface{ Scan(...any) error }) (Appeal, error) {
 	var a Appeal
-	err := s.Scan(&a.ID, &a.TrackHash, &a.ApplicantType, &a.CategoryID, &a.FreeTextMode,
+	err := s.Scan(&a.ID, &a.TrackHash, &a.ApplicantType, &a.CategoryID, &a.CategoryName, &a.FreeTextMode,
 		&a.Description, &a.Status, &a.Priority, &a.CrisisDetected, &a.AssignedExpertID,
 		&a.AssignedExpert, &a.RejectionReason, &a.Recommendation, &a.ReturnCount,
 		&a.TransferRequested, &a.Version, &a.IdempotencyKey, &a.CreatedAt, &a.UpdatedAt)

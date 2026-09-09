@@ -44,6 +44,9 @@ async function refreshDetail(silent) {
   $('dStatus').innerHTML = badge(a.status, ruStatus(a.status));
   $('dCrisis').classList.toggle('hidden', !a.crisis_detected);
   $('dPriority').value = a.priority; // чтобы открытие карточки не сбрасывало приоритет на «низкий»
+  // Текущая категория — в селект смены категории (если опции ещё не загружены, подхватит поллер)
+  const dCat = $('dCategory');
+  if (dCat && a.category_id && dCat.querySelector(`option[value="${a.category_id}"]`)) dCat.value = a.category_id;
   $('dMeta').innerHTML =
     kv('Заявитель', esc(ruAppType(a.applicant_type))) +
     kv('Категория', esc(a.category_name || 'свободный текст')) +
