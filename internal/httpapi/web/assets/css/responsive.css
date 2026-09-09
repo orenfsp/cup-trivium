@@ -1,6 +1,7 @@
 @media (min-width: 640px) {
   .row {
     flex-direction: row;
+    flex-wrap: wrap;
     gap: 12px;
   }
 
