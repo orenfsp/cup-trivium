@@ -38,6 +38,7 @@ async function refreshDetail(silent) {
   const isAdmin = !!me && me.role === 'admin';
   $('dStatus').innerHTML = badge(a.status, ruStatus(a.status));
   $('dCrisis').classList.toggle('hidden', !a.crisis_detected);
+  $('dPriority').value = a.priority; // чтобы открытие карточки не сбрасывало приоритет на «низкий»
   $('dMeta').innerHTML =
     kv('Заявитель', esc(ruAppType(a.applicant_type))) +
     kv('Категория', esc(a.category_name || 'свободный текст')) +
