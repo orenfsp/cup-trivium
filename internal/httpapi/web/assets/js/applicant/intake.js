@@ -40,8 +40,8 @@ function renderCrisisHelp(help) {
 async function createAppeal() {
   hideErr('apErr');
   const desc = $('apDesc').value.trim();
-  if (desc.length < 10) {
-    showErr('apErr', new Error(t('Можешь добавить пару деталей? Так будет проще помочь', 'Можете добавить пару деталей? Так будет проще помочь')));
+  if (desc.length === 0) {
+    showErr('apErr', new Error(t('Напиши хотя бы пару слов о том, что происходит', 'Напишите хотя бы пару слов о том, что происходит')));
     return;
   }
   const body = {

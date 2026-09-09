@@ -57,8 +57,8 @@ func (s *Server) handleCreateAppeal(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	desc := strings.TrimSpace(req.Description)
-	if len(desc) < 10 {
-		writeJSON(w, http.StatusBadRequest, errorResp{"description is too short (min 10 characters)"})
+	if len(desc) == 0 {
+		writeJSON(w, http.StatusBadRequest, errorResp{"description is required"})
 		return
 	}
 	if len(desc) > 8000 {
