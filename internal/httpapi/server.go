@@ -116,6 +116,8 @@ func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 		r.Use(s.requireRole(domain.RoleOperator, domain.RoleAdmin))
 		r.Get("/api/operator/queue", s.handleOperatorQueue)
 		r.Get("/api/operator/appeals", s.handleOperatorAppeals)
+		// ТЗ 5.1: жалоба уходит оператору; эксперт её не видит.
+		r.Get("/api/operator/complaints", s.handleAdminComplaints)
 	})
 
 	r.Group(func(r chi.Router) {
@@ -334,6 +336,9 @@ func writeErr(w http.ResponseWriter, err error) {
 		writeJSON(w, http.StatusUnprocessableEntity, errorResp{"validation error"})
 	case errors.Is(err, domain.ErrRateLimited):
 		writeJSON(w, http.StatusTooManyRequests, errorResp{"rate limited"})
+	case errors.Is(err, domain.ErrReturnLimitReached):
+		// ТЗ 5.1: лимит возвратов исчерпан — текст для заявителя.
+		writeJSON(w, http.StatusConflict, errorResp{"достигнут лимит возвратов: обращение можно завершить, оценить работу или отправить жалобу"})
 	default:
 		log.Printf("httpapi: internal error: %v", err)
 		writeJSON(w, http.StatusInternalServerError, errorResp{"internal error"})

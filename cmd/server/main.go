@@ -40,6 +40,32 @@ func main() {
 
 	st := store.New(d)
 
+	// ТЗ 5.1: «закрыто без ответа» переводит система — фоновый джоб
+	// закрывает обращения, где заявитель не возвращался дольше N дней.
+	go func() {
+		run := func() {
+			n, err := st.AutoCloseNoResponse(ctx)
+			if err != nil {
+				log.Printf("janitor: auto-close: %v", err)
+				return
+			}
+			if n > 0 {
+				log.Printf("janitor: closed %d appeal(s) without applicant response", n)
+			}
+		}
+		run()
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				run()
+			}
+		}
+	}()
+
 	publicSrv := &http.Server{
 		Addr:              cfg.ListenAddr,
 		Handler:           httpapi.New(cfg, st),

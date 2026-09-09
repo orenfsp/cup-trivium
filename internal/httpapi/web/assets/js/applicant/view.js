@@ -52,7 +52,19 @@ export async function loadApplicantView() {
     || '<div class="note">пока нет сообщений</div>';
   $('avMsgs').scrollTop = 1e9;
   $('avResultBlock').classList.toggle('hidden', v.status !== 'answer_ready');
+  // ТЗ 5.1: число возвратов ограничено — прячем «Не помогло» при исчерпании лимита.
+  const limitReached = v.status === 'answer_ready' && v.return_count >= (v.max_returns != null ? v.max_returns : 2);
+  $('avNotHelpedBtn').classList.toggle('hidden', limitReached);
+  const limNote = $('avReturnLimitNote');
+  limNote.classList.toggle('hidden', !limitReached);
+  limNote.textContent = limitReached
+    ? t('Лимит возвратов исчерпан. Если рекомендации не помогли — оцени работу, пожалуйся оператору или напиши новое обращение',
+        'Лимит возвратов исчерпан. Если рекомендации не помогли — оцените работу, отправьте жалобу оператору или напишите новое обращение')
+    : '';
   $('avFeedbackBlock').classList.toggle('hidden', !(v.status === 'answer_ready' || v.status === 'completed'));
+  // Жалоба доступна, когда в работе участвует специалист.
+  $('avComplaintBlock').classList.toggle('hidden',
+    !['assigned', 'in_progress', 'needs_clarification', 'answer_ready', 'returned'].includes(v.status));
   $('avAgainBlock').classList.toggle('hidden', !closed);
 }
 
@@ -122,12 +134,26 @@ async function apFeedback() {
   } catch (e) { toast(e.message); }
 }
 
+async function apComplaint() {
+  const text = $('avComplaintText').value.trim();
+  if (text.length < 5) {
+    toast(t('Опиши жалобу хотя бы парой слов', 'Опишите жалобу хотя бы парой слов'));
+    return;
+  }
+  try {
+    await api('POST', '/api/appeals/me/complaint', { text });
+    $('avComplaintText').value = '';
+    toast(t('Жалоба отправлена оператору — специалист её не увидит', 'Жалоба отправлена оператору — специалист её не увидит'));
+  } catch (e) { toast(e.message); }
+}
+
 registerActions({
   'applicant-send-message': apSendMessage,
   'applicant-append': apAppend,
   'applicant-upload': apUpload,
   'applicant-result': (arg) => apResult(arg === '1'),
   'applicant-feedback': apFeedback,
+  'applicant-complaint': apComplaint,
   'write-again': () => {
     $('newAppealCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     $('apDesc').focus();

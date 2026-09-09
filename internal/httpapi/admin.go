@@ -57,6 +57,8 @@ func (s *Server) handleAdminGetSettings(w http.ResponseWriter, r *http.Request) 
 
 type updateSettingsReq struct {
 	ExpertActiveLimit *int `json:"expert_active_limit"`
+	MaxReturns        *int `json:"max_returns"`
+	NoResponseDays    *int `json:"no_response_days"`
 }
 
 func (s *Server) handleAdminUpdateSettings(w http.ResponseWriter, r *http.Request) {
@@ -64,13 +66,35 @@ func (s *Server) handleAdminUpdateSettings(w http.ResponseWriter, r *http.Reques
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if req.ExpertActiveLimit == nil || *req.ExpertActiveLimit < 1 || *req.ExpertActiveLimit > 100 {
+	if req.ExpertActiveLimit != nil && (*req.ExpertActiveLimit < 1 || *req.ExpertActiveLimit > 100) {
 		writeJSON(w, http.StatusBadRequest, errorResp{"expert_active_limit должен быть от 1 до 100"})
 		return
 	}
-	if err := s.st.SetExpertActiveLimit(r.Context(), *req.ExpertActiveLimit); err != nil {
-		writeErr(w, err)
+	if req.MaxReturns != nil && (*req.MaxReturns < 0 || *req.MaxReturns > 10) {
+		writeJSON(w, http.StatusBadRequest, errorResp{"max_returns должен быть от 0 до 10"})
 		return
+	}
+	if req.NoResponseDays != nil && (*req.NoResponseDays < 1 || *req.NoResponseDays > 90) {
+		writeJSON(w, http.StatusBadRequest, errorResp{"no_response_days должен быть от 1 до 90"})
+		return
+	}
+	if req.ExpertActiveLimit != nil {
+		if err := s.st.SetExpertActiveLimit(r.Context(), *req.ExpertActiveLimit); err != nil {
+			writeErr(w, err)
+			return
+		}
+	}
+	if req.MaxReturns != nil {
+		if err := s.st.SetMaxReturns(r.Context(), *req.MaxReturns); err != nil {
+			writeErr(w, err)
+			return
+		}
+	}
+	if req.NoResponseDays != nil {
+		if err := s.st.SetNoResponseDays(r.Context(), *req.NoResponseDays); err != nil {
+			writeErr(w, err)
+			return
+		}
 	}
 	s.handleAdminGetSettings(w, r)
 }

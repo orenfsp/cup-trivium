@@ -75,9 +75,17 @@ func (st *Store) AddContributor(ctx context.Context, appealID, expertID uuid.UUI
 
 func (st *Store) ApplicantResult(ctx context.Context, appealID uuid.UUID,
 	helped bool, reason string) (Appeal, error) {
+	set, err := st.GetSettings(ctx)
+	if err != nil {
+		return Appeal{}, err
+	}
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
 		if a.Status != domain.StatusAnswerReady {
 			return domain.ErrConflict
+		}
+		// ТЗ 5.1: число возвратов ограничивает команда (по умолчанию два).
+		if !helped && a.ReturnCount >= set.MaxReturns {
+			return domain.ErrReturnLimitReached
 		}
 		to := domain.StatusReturned
 		eventReason := reason

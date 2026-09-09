@@ -63,15 +63,24 @@ export async function loadAdminSettings() {
   try {
     const s = await api('GET', '/api/admin/settings');
     $('adLimit').value = s.expert_active_limit;
+    $('adMaxReturns').value = s.max_returns;
+    $('adNoRespDays').value = s.no_response_days;
   } catch (e) { toast(e.message); }
 }
 
 async function adminSaveSettings() {
   try {
-    const v = parseInt($('adLimit').value, 10);
-    if (!v || v < 1 || v > 100) { toast('Лимит — целое число от 1 до 100'); return; }
-    const s = await api('PUT', '/api/admin/settings', { expert_active_limit: v });
-    toast('Лимит сохранён: ' + s.expert_active_limit);
+    const lim = parseInt($('adLimit').value, 10);
+    if (!lim || lim < 1 || lim > 100) { toast('Лимит специалистов — целое число от 1 до 100'); return; }
+    const mr = parseInt($('adMaxReturns').value, 10);
+    if (isNaN(mr) || mr < 0 || mr > 10) { toast('Лимит возвратов — целое число от 0 до 10'); return; }
+    const days = parseInt($('adNoRespDays').value, 10);
+    if (!days || days < 1 || days > 90) { toast('Дней до автозакрытия — целое число от 1 до 90'); return; }
+    const s = await api('PUT', '/api/admin/settings', {
+      expert_active_limit: lim, max_returns: mr, no_response_days: days
+    });
+    toast('Настройки сохранены: лимит ' + s.expert_active_limit +
+      ', возвратов ' + s.max_returns + ', автозакрытие ' + s.no_response_days + ' дн.');
     loadAdminAppeals(); // подсветка «группа перегружена» пересчитывается
   } catch (e) { toast(e.message); }
 }

@@ -3,7 +3,7 @@ import { api } from '../core/api.js';
 import { ruRole } from '../core/i18n.js';
 import { loadCategories } from '../categories.js';
 import { initStaffAuth } from './auth.js';
-import { loadQueue, loadOpAll, loadExpert, bindListFilters, loadMyStats } from './lists.js';
+import { loadQueue, loadOpAll, loadExpert, bindListFilters, loadMyStats, loadOpComplaints } from './lists.js';
 import { closeDetail } from './detail.js';
 import { loadAdminAppeals, loadAdminUsers, loadAdminCats, loadStats, loadAdminSettings } from './admin.js';
 import { staffState } from './state.js';
@@ -17,7 +17,7 @@ function afterStaffLogin() {
   $('opPanel').classList.toggle('hidden', !(me.role === 'operator' || me.role === 'admin'));
   $('exPanel').classList.toggle('hidden', me.role !== 'expert');
   $('adPanel').classList.toggle('hidden', me.role !== 'admin');
-  if (me.role === 'operator' || me.role === 'admin') { loadQueue(); loadOpAll(); }
+  if (me.role === 'operator' || me.role === 'admin') { loadQueue(); loadOpAll(); loadOpComplaints(); }
   if (me.role === 'operator' || me.role === 'expert') loadMyStats();
   if (me.role === 'expert') loadExpert();
   if (me.role === 'admin') { loadAdminAppeals(); loadAdminUsers(); loadAdminCats(); loadStats(); loadAdminSettings(); }

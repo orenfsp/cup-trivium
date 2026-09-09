@@ -121,6 +121,8 @@ var (
 	ErrConflict     = errors.New("conflict")
 	ErrValidation   = errors.New("validation error")
 	ErrRateLimited  = errors.New("rate limited")
+	// ErrReturnLimitReached — заявитель исчерпал лимит возвратов (ТЗ 5.1).
+	ErrReturnLimitReached = errors.New("return limit reached")
 )
 
 type IntakeQuestion struct {

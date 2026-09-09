@@ -20,6 +20,7 @@ type applicantAppealResp struct {
 	CategoryName      *string                   `json:"category_name"`
 	Recommendation    *string                   `json:"recommendation,omitempty"`
 	ReturnCount       int                       `json:"return_count"`
+	MaxReturns        int                       `json:"max_returns"`
 	CreatedAt         string                    `json:"created_at"`
 	UpdatedAt         string                    `json:"updated_at"`
 	IntakeAnswers     []store.IntakeAnswer      `json:"intake_answers"`
@@ -39,6 +40,7 @@ func (s *Server) writeApplicantView(w http.ResponseWriter, r *http.Request, appe
 	history, _ := s.st.ListStatusHistoryForApplicant(r.Context(), appealID)
 	messages, _ := s.st.ListMessages(r.Context(), appealID)
 	attachments, _ := s.st.ListAttachments(r.Context(), appealID)
+	set, _ := s.st.GetSettings(r.Context())
 
 	resp := applicantAppealResp{
 		ID: a.ID, Status: a.Status,
@@ -46,7 +48,7 @@ func (s *Server) writeApplicantView(w http.ResponseWriter, r *http.Request, appe
 		ApplicantType:     a.ApplicantType,
 		Description:       a.Description,
 		CategoryName:      a.CategoryName, Recommendation: a.Recommendation,
-		ReturnCount:   a.ReturnCount,
+		ReturnCount: a.ReturnCount, MaxReturns: set.MaxReturns,
 		CreatedAt:     a.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:     a.UpdatedAt.UTC().Format(time.RFC3339),
 		IntakeAnswers: answers, StatusHistory: history,

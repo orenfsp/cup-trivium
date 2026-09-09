@@ -123,8 +123,9 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
       <textarea id="avReturnReason" data-informal-ph="Что не помогло? Твои слова помогут подобрать другой способ (необязательно)" data-formal-ph="Что не помогло? Ваши слова помогут подобрать другой способ (необязательно)" placeholder="Что не помогло? (необязательно)"></textarea>
       <div class="btnrow">
         <button class="ok" data-action="applicant-result" data-arg="1">Помогло</button>
-        <button class="ghost" data-action="applicant-result" data-arg="0">Не помогло</button>
+        <button class="ghost" id="avNotHelpedBtn" data-action="applicant-result" data-arg="0">Не помогло</button>
       </div>
+      <div id="avReturnLimitNote" class="note hidden"></div>
     </div>
     <div id="avFeedbackBlock" class="hidden">
       <h3>Оценка работы специалиста (1–5)</h3>
@@ -133,6 +134,13 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
         <button class="ghost" data-action="applicant-feedback">Отправить оценку</button>
       </div>
       <textarea id="avComment" placeholder="Комментарий (необязательно)"></textarea>
+    </div>
+    <div id="avComplaintBlock" class="hidden">
+      <h3>Жалоба на специалиста</h3>
+      <textarea id="avComplaintText" data-informal-ph="Если что-то не так со специалистом — расскажи. Жалобу прочитает только оператор, специалист её не увидит" data-formal-ph="Если что-то не так со специалистом — опишите. Жалобу прочитает только оператор, специалист её не увидит" placeholder="Жалоба на специалиста"></textarea>
+      <div class="btnrow">
+        <button class="ghost" data-action="applicant-complaint">Отправить жалобу оператору</button>
+      </div>
     </div>
     <div id="avAgainBlock" class="hidden" style="margin-top:12px">
       <button class="act" data-action="write-again" data-informal="Написать снова" data-formal="Написать снова">Написать снова</button>
@@ -189,6 +197,13 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
       </div>
       <div id="opMyStats" class="note"></div>
       <div class="form-foot"><button class="ghost small" data-action="export-csv">Выгрузить CSV (все обращения)</button></div>
+      <hr class="divider">
+      <div class="panel-head">
+        <h3>Жалобы заявителей</h3>
+        <button class="ghost small" data-action="reload-op-complaints">Обновить</button>
+      </div>
+      <div class="note">Жалобы на специалистов видит только оператор и админ — эксперты доступа не имеют.</div>
+      <div id="opComplaints" class="note"></div>
     </div>
 
     <div id="exPanel" class="hidden">
@@ -267,9 +282,11 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
       <h3>Маршрутизация</h3>
       <div class="row">
         <div><label>Лимит активных обращений на специалиста</label><input type="number" id="adLimit" min="1" max="100"></div>
+        <div><label>Лимит возвратов заявителем</label><input type="number" id="adMaxReturns" min="0" max="10"></div>
+        <div><label>Дней без ответа до автозакрытия</label><input type="number" id="adNoRespDays" min="1" max="90"></div>
         <div class="form-foot"><button class="act small" data-action="admin-save-settings">Сохранить</button></div>
       </div>
-      <div class="note">Лимит мягкий: система подсказывает свободного специалиста и предупреждает о перегрузке, но назначает оператор.</div>
+      <div class="note">Лимит возвратов: после его исчерпания заявитель может только завершить обращение, оценить работу или пожаловаться. Автозакрытие: если заявитель не отвечает дольше указанного числа дней, система сама переводит обращение в «закрыто без ответа».</div>
       <hr class="divider">
       <div class="panel-head">
         <h3>Жалобы</h3>

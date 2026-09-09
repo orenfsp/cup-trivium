@@ -89,10 +89,20 @@ export async function loadMyStats() {
 
 const exportCsv = () => { window.open('/api/export/appeals', '_blank'); };
 
+export async function loadOpComplaints() {
+  try {
+    const cs = (await api('GET', '/api/operator/complaints')).complaints || [];
+    $('opComplaints').innerHTML = cs.map((c) =>
+      `<div style="margin:8px 0;padding:12px;border:1px solid var(--line);border-radius:12px;overflow-wrap:anywhere">
+       <b>Обращение #${esc(String(c.appeal_id).slice(0, 8))}</b> · ${fmtTime(c.created_at)}<br>${esc(c.text)}</div>`).join('') || 'жалоб нет';
+  } catch (e) { $('opComplaints').textContent = e.message; }
+}
+
 registerActions({
   'reload-queue': loadQueue,
   'reload-op-all': loadOpAll,
   'reload-expert': loadExpert,
   'reload-my-stats': loadMyStats,
+  'reload-op-complaints': loadOpComplaints,
   'export-csv': exportCsv,
 });
