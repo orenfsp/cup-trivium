@@ -3,7 +3,7 @@ import { api } from '../core/api.js';
 import { ruStatus, ruPrio, ruAppType, ruGroup, ruAuthor, ruEvent } from '../core/i18n.js';
 import { createPoller } from '../core/poller.js';
 import { registerActions } from '../core/actions.js';
-import { staffState } from './state.js';
+import { staffState, roleHome } from './state.js';
 import { loadQueue, loadOpAll, loadExpert } from './lists.js';
 import { loadAdminAppeals } from './admin.js';
 
@@ -14,16 +14,21 @@ const ROUTE_TERMINAL = { completed: 1, rejected: 1, closed_no_response: 1 };
 
 const detailPoller = createPoller(() => refreshDetail(true), 5000);
 
+// «К списку»: карточка обращения — отдельный эндпоинт, возвращаемся назад.
 export function closeDetail() {
-  $('detCard').classList.add('hidden');
-  detailId = null;
   detailPoller.stop();
+  if (history.length > 1) history.back();
+  else location.href = roleHome(staffState.me && staffState.me.role);
 }
 
-export async function openDetail(id) {
+// Карточка открытия по URL: /detail/{id}.
+export async function openDetailFromURL() {
+  const id = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
+  if (!id) {
+    location.href = roleHome(staffState.me && staffState.me.role);
+    return;
+  }
   detailId = id;
-  $('detCard').classList.remove('hidden');
-  $('detCard').scrollIntoView({ behavior: 'smooth' });
   await refreshDetail();
   detailPoller.start();
 }
@@ -226,9 +231,10 @@ async function act(path, body, msg) {
     await api('POST', '/api/appeals/' + detailId + '/' + path, body || {});
     toast(msg || 'Готово');
     await refreshDetail();
-    if (me && (me.role === 'operator' || me.role === 'admin')) { loadQueue(); loadOpAll(); }
-    if (me && me.role === 'expert') loadExpert();
-    if (me && me.role === 'admin') loadAdminAppeals(); // панель «Все обращения»
+    // Списки живут на своих страницах — обновляем только те, что есть в DOM.
+    if ($('opQueue')) { loadQueue(); loadOpAll(); }
+    if ($('exList')) loadExpert();
+    if ($('adAppeals')) loadAdminAppeals(); // панель «Все обращения»
   } catch (e) { toast(e.message); }
 }
 
@@ -273,7 +279,6 @@ const applySuggestion = (catId) => {
 };
 
 registerActions({
-  'open-detail': (id) => openDetail(id),
   'close-detail': closeDetail,
   'detail-send-message': dSendMsg,
   'detail-send-note': dSendNote,

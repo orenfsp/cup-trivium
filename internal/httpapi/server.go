@@ -52,7 +52,11 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 	r.Use(s.authMW(false, true))
 
 	r.Get("/api/health", healthHandler)
-	r.Get("/", s.indexFor("applicant"))
+	// Страницы заявителя: каждая логика — отдельный эндпоинт.
+	r.Get("/", s.pageFor("applicant", "index.html"))   // приветственное окно
+	r.Get("/new", s.pageFor("applicant", "new.html"))   // подача обращения
+	r.Get("/track", s.pageFor("applicant", "track.html")) // вход по трек-номеру
+	r.Get("/appeal", s.pageFor("applicant", "appeal.html")) // чат и статус обращения
 	r.Handle("/assets/*", assetsHandler())
 	r.Get("/api/categories", s.handlePublicCategories)
 	r.Get("/api/intake-questions", func(w http.ResponseWriter, _ *http.Request) {
@@ -92,7 +96,14 @@ func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 	r.Use(s.authMW(true, false))
 
 	r.Get("/api/health", healthHandler)
-	r.Get("/", s.indexFor("staff"))
+	// Страницы сотрудника: вход, отдельная панель под каждую роль и карточка обращения.
+	r.Get("/", s.pageFor("staff", "login.html"))       // редирект на нужную панель делает JS
+	r.Get("/login", s.pageFor("staff", "login.html"))
+	r.Get("/operator", s.pageFor("staff", "operator.html"))
+	r.Get("/expert", s.pageFor("staff", "expert.html"))
+	r.Get("/admin", s.pageFor("staff", "admin.html"))
+	r.Get("/detail", s.pageFor("staff", "detail.html"))
+	r.Get("/detail/*", s.pageFor("staff", "detail.html"))
 	r.Handle("/assets/*", assetsHandler())
 	r.Get("/api/categories", s.handlePublicCategories)
 

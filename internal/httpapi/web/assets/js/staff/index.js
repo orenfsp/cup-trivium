@@ -4,41 +4,96 @@ import { ruRole } from '../core/i18n.js';
 import { loadCategories } from '../categories.js';
 import { initStaffAuth } from './auth.js';
 import { loadQueue, loadOpAll, loadExpert, bindListFilters, loadMyStats, loadOpComplaints } from './lists.js';
-import { closeDetail } from './detail.js';
-import { loadAdminAppeals, loadAdminUsers, loadAdminCats, loadStats, loadAdminSettings } from './admin.js';
-import { staffState } from './state.js';
+import { openDetailFromURL } from './detail.js';
+import { loadAdminAppeals, loadAdminUsers, loadAdminCats, loadStats, loadAdminSettings, loadComplaints } from './admin.js';
+import { staffState, roleHome } from './state.js';
 
-function afterStaffLogin() {
-  const me = staffState.me;
-  $('loginCard').classList.add('hidden');
-  $('stHome').classList.remove('hidden');
+function bindAuthHooks() {
+  initStaffAuth({
+    afterLogin: () => { location.href = roleHome(staffState.me && staffState.me.role); },
+    afterLogout: () => { location.href = '/login'; },
+  });
+}
+
+function paintWhoami(me) {
   $('whoami').textContent = `${me.login} (${ruRole(me.role)})`;
-  $('stHello').textContent = `${me.login} — ${ruRole(me.role)}`;
-  $('opPanel').classList.toggle('hidden', !(me.role === 'operator' || me.role === 'admin'));
-  $('exPanel').classList.toggle('hidden', me.role !== 'expert');
-  $('adPanel').classList.toggle('hidden', me.role !== 'admin');
-  if (me.role === 'operator' || me.role === 'admin') { loadQueue(); loadOpAll(); loadOpComplaints(); }
-  if (me.role === 'operator' || me.role === 'expert') loadMyStats();
-  if (me.role === 'expert') loadExpert();
-  if (me.role === 'admin') { loadAdminAppeals(); loadAdminUsers(); loadAdminCats(); loadStats(); loadAdminSettings(); }
+  const hello = $('stHello');
+  if (hello) hello.textContent = `${me.login} — ${ruRole(me.role)}`;
 }
 
-function showLoginScreen() {
-  $('stHome').classList.add('hidden');
-  closeDetail(); // заодно останавливает поллинг карточки
-  $('loginCard').classList.remove('hidden');
-  $('whoami').textContent = 'анонимно';
-}
-
-export async function staffInit() {
-  initStaffAuth({ afterLogin: afterStaffLogin, afterLogout: showLoginScreen });
-  bindListFilters();
-  await loadCategories(); // селект категорий в карточке обращения
+async function fetchMe() {
   try {
     const r = await api('GET', '/api/me');
-    if (r.user_id) {
-      staffState.me = r;
-      afterStaffLogin();
-    }
+    if (r.user_id && r.role) return r;
   } catch (e) { /* нет сессии — покажем форму входа */ }
+  return null;
+}
+
+// Гард страницы: без сессии — на вход, с чужой ролью — на свою домашнюю страницу.
+async function guardPage(roles) {
+  const me = await fetchMe();
+  if (!me) {
+    location.replace('/login');
+    return null;
+  }
+  if (!roles.includes(me.role)) {
+    location.replace(roleHome(me.role));
+    return null;
+  }
+  staffState.me = me;
+  paintWhoami(me);
+  bindAuthHooks();
+  return me;
+}
+
+// Страница /login (и /): при живой сессии сразу уводит на панель по роли.
+export async function loginInit() {
+  bindAuthHooks();
+  const me = await fetchMe();
+  if (me) location.replace(roleHome(me.role));
+}
+
+// Страница /operator — панель оператора (админу тоже доступна).
+export async function operatorInit() {
+  const me = await guardPage(['operator', 'admin']);
+  if (!me) return;
+  const navAdmin = $('navAdminLink');
+  if (navAdmin) navAdmin.classList.toggle('hidden', me.role !== 'admin');
+  bindListFilters();
+  await loadCategories(); // селект категорий в карточке обращения
+  loadQueue();
+  loadOpAll();
+  loadOpComplaints();
+  loadMyStats();
+}
+
+// Страница /expert — панель специалиста.
+export async function expertInit() {
+  const me = await guardPage(['expert']);
+  if (!me) return;
+  bindListFilters();
+  await loadCategories();
+  loadExpert();
+  loadMyStats();
+}
+
+// Страница /admin — панель администратора.
+export async function adminInit() {
+  const me = await guardPage(['admin']);
+  if (!me) return;
+  await loadCategories();
+  loadAdminAppeals();
+  loadAdminUsers();
+  loadAdminCats();
+  loadStats();
+  loadAdminSettings();
+  loadComplaints();
+}
+
+// Страница /detail/{id} — карточка обращения.
+export async function detailInit() {
+  const me = await guardPage(['operator', 'expert', 'admin']);
+  if (!me) return;
+  await loadCategories(); // селект смены категории
+  await openDetailFromURL();
 }

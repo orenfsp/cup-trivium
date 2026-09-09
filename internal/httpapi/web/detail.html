@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Отклик — карточка обращения</title>
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/layout.css">
+<link rel="stylesheet" href="/assets/css/responsive.css">
+</head>
+<body data-page="detail">
+<script>
+window.UI_MODE = "__OTKLIK_UI_MODE__" === "staff" ? "staff" : "applicant";
+document.body.classList.add(window.UI_MODE + "-mode");
+</script>
+<header>
+  <div class="top">
+    <h1>Отклик</h1>
+    <div class="who" id="whoami">анонимно</div>
+  </div>
+</header>
+<main>
+<section id="secStaff">
+  <div class="card" id="detCard">
+    <div class="det-head">
+      <button class="ghost small" data-action="close-detail">← К списку</button>
+      <h2>Обращение <span id="dStatus"></span></h2>
+    </div>
+    <div id="dCrisis" class="err-box">⚠ Обнаружен кризисный сценарий</div>
+    <div id="dPresence" class="presence hidden"></div>
+    <div id="dMeta"></div>
+    <h3 id="dDescTitle">Описание</h3><pre class="raw" id="dDesc"></pre>
+    <div id="dDescRestricted" class="note hidden">Текст обращения и ответы анкеты администратору недоступны: администратор работает с метаданными, статусами и аналитикой.</div>
+    <h3 id="dAttachTitle" class="hidden">Вложения</h3>
+    <div id="dAttach" class="note"></div>
+    <div id="dAnswers"></div>
+    <div id="dSuggest" class="act-hint hidden"></div>
+    <div id="dRouting" class="act-hint hidden"></div>
+    <div id="dOpActions" class="hidden actions-panel">
+      <h3>Действия оператора / администратора</h3>
+      <div id="opHint" class="act-hint hidden"></div>
+      <div class="act-line" id="opAssignRow">
+        <div class="grow"><label>Назначить эксперта</label><select id="dExpert"></select></div>
+        <div class="grow"><label>Комментарий к назначению</label><input type="text" id="dAssignReason"></div>
+        <button class="act" data-action="op-assign">Назначить</button>
+      </div>
+      <div class="act-line" id="opPriorityRow">
+        <div class="grow"><label>Приоритет</label><select id="dPriority"><option value="low">низкий</option><option value="normal">обычный</option><option value="urgent">срочный</option></select></div>
+        <button class="ghost" data-action="op-priority">Изменить</button>
+      </div>
+      <div class="act-line" id="opCategoryRow">
+        <div class="grow"><label>Категория</label><select id="dCategory"></select></div>
+        <button class="ghost" data-action="op-category">Сменить</button>
+      </div>
+      <div class="act-line hidden" id="adStatusRow">
+        <div class="grow"><label>Статус (разблокировка зависшего обращения)</label><select id="dAdminStatus">
+          <option value="new">новое</option>
+          <option value="assigned">назначено</option>
+          <option value="in_progress">в работе</option>
+          <option value="needs_clarification">нужны уточнения</option>
+          <option value="answer_ready">готов ответ</option>
+          <option value="completed">завершено</option>
+          <option value="returned">возвращено</option>
+          <option value="rejected">отклонено</option>
+          <option value="closed_no_response">закрыто без ответа</option>
+        </select></div>
+        <div class="grow"><label>Причина смены статуса</label><input type="text" id="dAdminStatusReason"></div>
+        <button class="act" data-action="ad-status">Сменить статус</button>
+      </div>
+      <div class="act-line" id="opCompleteRow">
+        <div class="grow"><label>Рекомендация (закрыть самому)</label><input type="text" id="dCompleteRec"></div>
+        <button class="ok" data-action="op-complete">Завершить</button>
+      </div>
+      <div class="act-line" id="opReturnRow">
+        <div class="grow"><label>Причина возврата на доработку</label><input type="text" id="dReturnReason"></div>
+        <button class="ghost" data-action="op-return">Вернуть на доработку</button>
+      </div>
+      <div class="danger-zone" id="opCloseNoRespRow">
+        <button class="danger" data-action="op-close-no-response">Закрыть: нет ответа заявителя</button>
+      </div>
+      <div class="danger-zone" id="opRejectRow">
+        <label>Причина отклонения</label>
+        <div class="act-line">
+          <div class="grow"><input type="text" id="dRejectReason"></div>
+          <button class="danger" data-action="op-reject">Отклонить</button>
+        </div>
+      </div>
+    </div>
+    <div id="dExActions" class="hidden actions-panel">
+      <h3>Действия эксперта</h3>
+      <div id="exHint" class="act-hint"></div>
+      <div class="btnrow" id="exTakeRow">
+        <button class="act" data-action="ex-take">Взять в работу</button>
+      </div>
+      <div class="btnrow" id="exClarifyRow">
+        <button class="ghost" data-action="ex-clarify">Запросить уточнение</button>
+      </div>
+      <div class="act-line" id="exRecRow">
+        <div class="grow"><label>Рекомендация заявителю</label><input type="text" id="dRec"></div>
+        <button class="ok" data-action="ex-recommendation">Опубликовать</button>
+      </div>
+      <div class="act-line" id="exTransferRow">
+        <div class="grow"><label>Причина передачи другому специалисту</label><input type="text" id="dTransferReason"></div>
+        <button class="ghost" data-action="ex-transfer">Передать</button>
+      </div>
+      <div class="act-line" id="exContribRow">
+        <div class="grow"><label>Подключить коллегу-соисполнителя</label><select id="dContributor"></select></div>
+        <button class="ghost" data-action="ex-contributor">Подключить</button>
+      </div>
+    </div>
+    <div class="grid2" style="margin-top:14px">
+      <div>
+        <h3>Чат с заявителем</h3>
+        <div id="dChatRestricted" class="note hidden">Переписка заявителя со специалистом недоступна оператору и администратору — после назначения обращение ведёт эксперт; администратор в переписке не участвует.</div>
+        <div id="dChatBody">
+          <div class="chatwrap"><div class="msgs" id="dMsgs"></div></div>
+          <div class="chat-send">
+            <textarea id="dMsgText" placeholder="Сообщение"></textarea>
+            <button class="act" data-action="detail-send-message">Отправить</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div id="dNotesWrap">
+          <h3>Внутренние заметки <span class="note" style="font-weight:400">— не видны заявителю</span></h3>
+          <div class="chatwrap"><div class="msgs" id="dNotes"></div></div>
+          <div class="chat-send" id="dNoteForm">
+            <textarea id="dNoteText" placeholder="Заметка"></textarea>
+            <button class="ghost" data-action="detail-send-note">Добавить</button>
+          </div>
+        </div>
+        <div id="dNotesRestricted" class="note hidden">Внутренние заметки видны участникам обращения и оператору, но не заявителю; администратору недоступны.</div>
+        <h3>События (аудит)</h3>
+        <div id="dEvents" class="note">—</div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+<script type="module" src="/assets/js/main.js"></script>
+</body>
+</html>

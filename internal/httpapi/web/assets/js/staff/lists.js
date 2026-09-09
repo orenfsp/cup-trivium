@@ -66,14 +66,18 @@ export async function loadExpert() {
 }
 
 export function bindListFilters() {
-  $('opFilterStatus').addEventListener('change', loadOpAll);
-  $('exFilterStatus').addEventListener('change', loadExpert);
-  $('exFilterPriority').addEventListener('change', loadExpert);
-  $('exFilterCategory').addEventListener('change', loadExpert);
-  api('GET', '/api/categories').then((r) => {
-    $('exFilterCategory').innerHTML = '<option value="">любая</option>' +
-      (r.categories || []).map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
-  }).catch(() => {});
+  // Фильтры живут на разных страницах — вешаем только те, что есть в DOM.
+  if ($('opFilterStatus')) $('opFilterStatus').addEventListener('change', loadOpAll);
+  const exFilters = ['exFilterStatus', 'exFilterPriority', 'exFilterCategory'];
+  if (exFilters.some((id) => $(id))) {
+    exFilters.forEach((id) => { if ($(id)) $(id).addEventListener('change', loadExpert); });
+  }
+  if ($('exFilterCategory')) {
+    api('GET', '/api/categories').then((r) => {
+      $('exFilterCategory').innerHTML = '<option value="">любая</option>' +
+        (r.categories || []).map((c) => `<option value="${esc(c.name)}">${esc(c.name)}</option>`).join('');
+    }).catch(() => {});
+  }
 }
 
 export async function loadMyStats() {
@@ -108,6 +112,7 @@ export async function loadOpComplaints() {
 }
 
 registerActions({
+  'open-detail': (id) => { location.href = '/detail/' + encodeURIComponent(id); },
   'reload-queue': loadQueue,
   'reload-op-all': loadOpAll,
   'reload-expert': loadExpert,

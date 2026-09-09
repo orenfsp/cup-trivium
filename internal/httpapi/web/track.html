@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Отклик — вход по трек-номеру</title>
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/layout.css">
+<link rel="stylesheet" href="/assets/css/responsive.css">
+</head>
+<body data-page="track">
+<script>
+window.UI_MODE = "__OTKLIK_UI_MODE__" === "staff" ? "staff" : "applicant";
+document.body.classList.add(window.UI_MODE + "-mode");
+</script>
+<header>
+  <div class="top">
+    <h1>Отклик</h1>
+    <div class="who" id="whoami">анонимно</div>
+  </div>
+</header>
+<main>
+<section id="secApplicant">
+  <div class="card">
+    <div class="panel-head">
+      <h2>Вход по трек-номеру</h2>
+      <a class="ghost small" href="/">← На главную</a>
+    </div>
+    <label>Трек-номер</label>
+    <input type="text" id="trkInput" placeholder="ОТК-XXXX-XXXX-XXXX" autocapitalize="characters" autocomplete="off">
+    <div id="trkErr" class="err-box hidden"></div>
+    <button class="act" data-action="verify-track">Войти</button>
+    <h3>Сохранённые номера (в этом браузере)</h3>
+    <div id="savedTracks" class="note savedlist">пусто</div>
+    <div class="btnrow">
+      <a class="act" href="/new">Подать новое обращение</a>
+    </div>
+  </div>
+</section>
+</main>
+<script type="module" src="/assets/js/main.js"></script>
+</body>
+</html>

@@ -1,14 +1,16 @@
 import { $, esc, fmtTime, toast, showErr, hideErr } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { registerActions } from '../core/actions.js';
-import { loadApplicantView, viewPoller } from './view.js';
 import { t } from './tone.js';
 
 let lastTrack = '';
 
 export const rememberTrack = (t) => { lastTrack = t; };
 
-const trackURL = (t) => location.origin + '/?track=' + encodeURIComponent(t);
+export const lastTrackNumber = () => lastTrack;
+
+// Прямая ссылка на обращение — отдельный эндпоинт /appeal с трек-номером в параметре.
+const trackURL = (t) => location.origin + '/appeal?track=' + encodeURIComponent(t);
 
 export function saveTrack(track) {
   const saved = JSON.parse(localStorage.getItem('otklik_tracks') || '[]');
@@ -76,8 +78,10 @@ export function renderQR(track) {
 }
 
 export function renderSaved() {
+  const box = $('savedTracks'); // список есть только на странице /track
+  if (!box) return;
   const saved = JSON.parse(localStorage.getItem('otklik_tracks') || '[]');
-  $('savedTracks').innerHTML = saved.length
+  box.innerHTML = saved.length
     ? saved.map((s) => `<div style="margin:6px 0"><a href="#" data-action="use-track" data-arg="${esc(s.track)}">${esc(s.track)}</a> <span class="note">${fmtTime(s.created)}</span></div>`).join('')
     : 'пусто';
 }
@@ -93,9 +97,8 @@ export async function verifyTrack() {
   if (!tn) { showErr('trkErr', new Error(t('Вставь трек-номер обращения — он в файле-памятке или в QR-коде', 'Вставьте трек-номер обращения — он в файле-памятке или в QR-коде'))); return; }
   try {
     await api('POST', '/api/appeals/track', { track_number: tn });
-    $('whoami').textContent = 'заявитель';
-    await loadApplicantView();
-    viewPoller.start();
+    saveTrack(tn);
+    location.href = '/appeal'; // обращение живёт на отдельном эндпоинте
   } catch (e) {
     showErr('trkErr', e);
   }

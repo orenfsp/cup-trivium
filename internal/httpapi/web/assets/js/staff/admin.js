@@ -143,7 +143,7 @@ async function adminCreateCategory() {
   } catch (e) { toast(e.message); }
 }
 
-async function loadComplaints() {
+export async function loadComplaints() {
   try {
     const cs = (await api('GET', '/api/admin/complaints')).complaints || [];
     $('adComplaints').innerHTML = cs.map((c) =>

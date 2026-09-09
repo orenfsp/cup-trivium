@@ -157,7 +157,6 @@ registerActions({
   'applicant-feedback': apFeedback,
   'applicant-complaint': apComplaint,
   'write-again': () => {
-    $('newAppealCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    $('apDesc').focus();
+    location.href = '/new'; // новое обращение — отдельный эндпоинт
   },
 });

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Отклик — панель администратора</title>
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/layout.css">
+<link rel="stylesheet" href="/assets/css/responsive.css">
+</head>
+<body data-page="admin">
+<script>
+window.UI_MODE = "__OTKLIK_UI_MODE__" === "staff" ? "staff" : "applicant";
+document.body.classList.add(window.UI_MODE + "-mode");
+</script>
+<header>
+  <div class="top">
+    <h1>Отклик</h1>
+    <div class="who" id="whoami">анонимно</div>
+  </div>
+</header>
+<main>
+<section id="secStaff">
+  <div class="card" id="stHome">
+    <div class="panel-head">
+      <h2 id="stHello"></h2>
+      <div class="btnrow">
+        <a class="ghost small" href="/operator">Панель оператора</a>
+        <button class="ghost small" data-action="staff-logout">Выйти</button>
+      </div>
+    </div>
+
+    <div id="adPanel">
+      <div class="panel-head">
+        <h3>Аналитика</h3>
+        <div>
+          <button class="ghost small" data-action="export-csv">Выгрузить CSV</button>
+          <button class="ghost small" data-action="reload-stats">Обновить</button>
+        </div>
+      </div>
+      <div class="filter-line">
+        <label for="adFrom">Период с</label><input type="date" id="adFrom">
+        <label for="adTo">по</label><input type="date" id="adTo">
+        <button class="ghost small" data-action="reload-stats">Применить период</button>
+      </div>
+      <div id="adStats" class="note"></div>
+      <hr class="divider">
+      <div class="panel-head">
+        <h3>Все обращения</h3>
+        <button class="ghost small" data-action="reload-admin-appeals">Обновить</button>
+      </div>
+      <div id="adAppeals"></div>
+      <hr class="divider">
+      <h3>Пользователи</h3>
+      <div class="row">
+        <div><label>Логин</label><input type="text" id="nuLogin" autocapitalize="none"></div>
+        <div><label>Пароль</label><input type="password" id="nuPass"></div>
+        <div><label>Роль</label><select id="nuRole"><option value="expert">специалист</option><option value="operator">оператор</option><option value="admin">администратор</option></select></div>
+        <div><label>Группа</label><select id="nuGroup"><option value=""></option><option value="psychologists">психолог</option><option value="conflictologists">конфликтолог</option><option value="lawyers">юрист</option><option value="social_pedagogues">социальный педагог</option></select></div>
+      </div>
+      <div class="form-foot"><button class="act small" data-action="admin-create-user">Создать</button></div>
+      <div id="adUsers"></div>
+      <hr class="divider">
+      <h3>Категории</h3>
+      <div class="row">
+        <div><label>Название</label><input type="text" id="ncName"></div>
+        <div><label>Группа</label><select id="ncGroup"><option value="psychologists">психолог</option><option value="conflictologists">конфликтолог</option><option value="lawyers">юрист</option><option value="social_pedagogues">социальный педагог</option></select></div>
+        <div><label>Свободная форма</label><select id="ncFree"><option value="false">нет</option><option value="true">да</option></select></div>
+      </div>
+      <div class="form-foot"><button class="act small" data-action="admin-create-category">Создать</button></div>
+      <div id="adCats"></div>
+      <hr class="divider">
+      <h3>Маршрутизация</h3>
+      <div class="row">
+        <div><label>Лимит активных обращений на специалиста</label><input type="number" id="adLimit" min="1" max="100"></div>
+        <div><label>Лимит возвратов заявителем</label><input type="number" id="adMaxReturns" min="0" max="10"></div>
+        <div><label>Дней без ответа до автозакрытия</label><input type="number" id="adNoRespDays" min="1" max="90"></div>
+        <div class="form-foot"><button class="act small" data-action="admin-save-settings">Сохранить</button></div>
+      </div>
+      <div class="note">Лимит возвратов: после его исчерпания заявитель может только завершить обращение, оценить работу или пожаловаться. Автозакрытие: если заявитель не отвечает дольше указанного числа дней, система сама переводит обращение в «закрыто без ответа».</div>
+      <hr class="divider">
+      <div class="panel-head">
+        <h3>Жалобы</h3>
+        <button class="ghost small" data-action="reload-complaints">Обновить</button>
+      </div>
+      <div id="adComplaints" class="note"></div>
+    </div>
+  </div>
+</section>
+</main>
+<script type="module" src="/assets/js/main.js"></script>
+</body>
+</html>

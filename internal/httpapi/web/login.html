@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Отклик — вход сотрудника</title>
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/layout.css">
+<link rel="stylesheet" href="/assets/css/responsive.css">
+</head>
+<body data-page="login">
+<script>
+window.UI_MODE = "__OTKLIK_UI_MODE__" === "staff" ? "staff" : "applicant";
+document.body.classList.add(window.UI_MODE + "-mode");
+</script>
+<header>
+  <div class="top">
+    <h1>Отклик</h1>
+    <div class="who" id="whoami">анонимно</div>
+  </div>
+</header>
+<main>
+<section id="secStaff">
+  <div class="card" id="loginCard">
+    <h2>Вход сотрудника</h2>
+    <div class="row">
+      <div><label>Логин</label><input type="text" id="stLogin" placeholder="operator" autocapitalize="none" autocomplete="username"></div>
+      <div><label>Пароль</label><input type="password" id="stPass" placeholder="otklik-demo-2026" autocomplete="current-password"></div>
+    </div>
+    <div class="note" style="margin-top:8px">Демо: admin / operator / psychologist1 / psychologist2 / lawyer1 / mediator1 — пароль otklik-demo-2026</div>
+    <div id="stErr" class="err-box hidden"></div>
+    <button class="act" data-action="staff-login">Войти</button>
+    <div class="note">После входа вы попадёте на страницу своей роли: оператор, специалист или администратор.</div>
+  </div>
+</section>
+</main>
+<script type="module" src="/assets/js/main.js"></script>
+</body>
+</html>

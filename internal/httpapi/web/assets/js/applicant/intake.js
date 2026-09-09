@@ -1,8 +1,8 @@
-import { $, esc, showErr, hideErr } from '../core/dom.js';
+import { $, esc, showErr, hideErr, toast } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { registerActions } from '../core/actions.js';
 import { loadCategories } from '../categories.js';
-import { rememberTrack, saveTrack, renderQR } from './track.js';
+import { rememberTrack, saveTrack, renderQR, lastTrackNumber } from './track.js';
 import { applyTone, t } from './tone.js';
 
 function syncFree() {
@@ -76,9 +76,21 @@ async function createAppeal() {
     renderCrisisHelp(r.crisis_help);
     saveTrack(r.track_number);
     renderQR(r.track_number);
-    $('trkInput').value = r.track_number;
   } catch (e) {
     showErr('apErr', e);
+  }
+}
+
+// Открыть только что созданное обращение: активируем сессию по трек-номеру
+// и переходим на отдельный эндпоинт /appeal.
+async function openMyAppeal() {
+  const tn = lastTrackNumber() || $('apTrack').textContent.trim();
+  if (!tn) { toast('Сначала отправьте обращение'); return; }
+  try {
+    await api('POST', '/api/appeals/track', { track_number: tn });
+    location.href = '/appeal';
+  } catch (e) {
+    toast(e.message);
   }
 }
 
@@ -93,6 +105,5 @@ export async function intakeInit() {
 
 registerActions({
   'create-appeal': createAppeal,
-  'goto-new': () => $('newAppealCard').scrollIntoView({ behavior: 'smooth', block: 'start' }),
-  'goto-track': () => $('trkInput').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' }),
+  'open-my-appeal': openMyAppeal,
 });

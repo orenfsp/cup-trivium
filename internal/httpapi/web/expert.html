@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<title>Отклик — панель специалиста</title>
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
+<link rel="stylesheet" href="/assets/css/layout.css">
+<link rel="stylesheet" href="/assets/css/responsive.css">
+</head>
+<body data-page="expert">
+<script>
+window.UI_MODE = "__OTKLIK_UI_MODE__" === "staff" ? "staff" : "applicant";
+document.body.classList.add(window.UI_MODE + "-mode");
+</script>
+<header>
+  <div class="top">
+    <h1>Отклик</h1>
+    <div class="who" id="whoami">анонимно</div>
+  </div>
+</header>
+<main>
+<section id="secStaff">
+  <div class="card" id="stHome">
+    <div class="panel-head">
+      <h2 id="stHello"></h2>
+      <div class="btnrow">
+        <button class="ghost small" data-action="staff-logout">Выйти</button>
+      </div>
+    </div>
+
+    <div id="exPanel">
+      <div class="panel-head">
+        <h3>Мои обращения</h3>
+        <div class="filter-line">
+          <label>Статус</label>
+          <select id="exFilterStatus">
+            <option value="">любой статус</option>
+            <option value="assigned">назначено</option><option value="in_progress">в работе</option>
+            <option value="needs_clarification">нужны уточнения</option>
+            <option value="answer_ready">готов ответ</option><option value="completed">завершено</option>
+            <option value="returned">возвращено</option>
+          </select>
+          <label>Приоритет</label>
+          <select id="exFilterPriority">
+            <option value="">любой</option>
+            <option value="low">низкий</option><option value="normal">обычный</option>
+            <option value="urgent">срочный</option>
+          </select>
+          <label>Категория</label>
+          <select id="exFilterCategory"><option value="">любая</option></select>
+          <button class="ghost small" data-action="reload-expert">Обновить</button>
+        </div>
+      </div>
+      <div id="exList"></div>
+      <hr class="divider">
+      <div class="panel-head">
+        <h3>Моя аналитика</h3>
+        <button class="ghost small" data-action="reload-my-stats">Обновить</button>
+      </div>
+      <div id="exMyStats" class="note"></div>
+      <div class="form-foot"><button class="ghost small" data-action="export-csv">Выгрузить CSV (мои обращения)</button></div>
+    </div>
+  </div>
+</section>
+</main>
+<script type="module" src="/assets/js/main.js"></script>
+</body>
+</html>

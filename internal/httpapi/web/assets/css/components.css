@@ -20,7 +20,11 @@
 button.act,
 button.ghost,
 button.ok,
-button.danger {
+button.danger,
+a.act,
+a.ghost,
+a.ok,
+a.danger {
   min-height: 46px;
   border-radius: 11px;
   cursor: pointer;
@@ -30,30 +34,54 @@ button.danger {
   border: 0;
   width: 100%;
   margin-top: 10px;
+  box-sizing: border-box;
 }
 
-button.act {
+/* Ссылки-кнопки для навигации между страницами. */
+a.act,
+a.ghost,
+a.ok,
+a.danger {
+  display: inline-block;
+  text-align: center;
+  text-decoration: none;
+  width: auto;
+}
+
+button.act,
+a.act {
   background: var(--acc);
   color: #fff;
 }
 
-button.ghost {
+button.ghost,
+a.ghost {
   background: #fff;
   color: var(--ink);
   border: 1.5px solid var(--line);
 }
 
-button.ok {
+button.ok,
+a.ok {
   background: var(--ok);
   color: #fff;
 }
 
-button.danger {
+button.danger,
+a.danger {
   background: var(--bad);
   color: #fff;
 }
 
 button.small {
+  min-height: 38px;
+  padding: 7px 14px;
+  font-size: 14px;
+  width: auto;
+  margin-top: 0;
+}
+
+a.small {
   min-height: 38px;
   padding: 7px 14px;
   font-size: 14px;
@@ -67,7 +95,8 @@ button.small {
   flex-wrap: wrap;
 }
 
-.btnrow > button {
+.btnrow > button,
+.btnrow > a {
   flex: 1;
   min-width: 140px;
 }
