@@ -88,6 +88,29 @@ func (st *Store) TransitionStatus(ctx context.Context, appealID uuid.UUID,
 	})
 }
 
+// FlagCrisisFromMessage помечает обращение кризисным, если маркеры впервые
+// появились в сообщении заявителя (ТЗ «Кризисные обращения», п.1: маркеры в тексте).
+// Идемпотентно: повторный вызов для уже кризисного обращения ничего не меняет.
+func (st *Store) FlagCrisisFromMessage(ctx context.Context, appealID uuid.UUID) error {
+	_, err := st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
+		if a.CrisisDetected {
+			return nil
+		}
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE appeals SET crisis_detected = TRUE,
+				version = version + 1, updated_at = now()
+			WHERE id = $1 AND NOT crisis_detected`, appealID); err != nil {
+			return err
+		}
+		return addEvent(ctx, tx, EventPayload{
+			AppealID: appealID, ActorRole: domain.Role("system"),
+			EventType: "crisis", OldValue: "false", NewValue: "true",
+			Reason: "crisis_markers_in_applicant_message",
+		})
+	})
+	return err
+}
+
 func (st *Store) SetPriority(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, p domain.Priority, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {

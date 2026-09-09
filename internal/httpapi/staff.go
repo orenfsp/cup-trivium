@@ -157,7 +157,9 @@ func (s *Server) staffAppeal(r *http.Request, a store.Appeal, p domain.Principal
 		}
 	}
 	resp.Participants, _ = s.st.ListParticipants(r.Context(), a.ID)
-	if p.Role == domain.RoleOperator || p.Role == domain.RoleAdmin {
+	// ТЗ «Кризисные обращения», п.4: контакт доступен только оператору
+	// и только по кризисным обращениям (эксперт не видит его ни в каком случае).
+	if (p.Role == domain.RoleOperator || p.Role == domain.RoleAdmin) && a.CrisisDetected {
 		resp.CrisisContact, _ = s.st.GetCrisisContact(r.Context(), a.ID)
 	}
 	return resp

@@ -103,7 +103,18 @@ func (s *Server) handleApplicantPostMessage(w http.ResponseWriter, r *http.Reque
 		writeErr(w, err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, msg)
+	resp := map[string]any{"message": msg}
+	// ТЗ «Кризисные обращения», п.1: маркеры в тексте помечают обращение.
+	// Если кризис проявился уже в чате — помечаем и сразу показываем помощь.
+	if !a.CrisisDetected && domain.DetectCrisis(strings.TrimSpace(req.Text)) {
+		if err := s.st.FlagCrisisFromMessage(r.Context(), p.AppealID); err != nil {
+			writeErr(w, err)
+			return
+		}
+		resp["crisis_detected"] = true
+		resp["crisis_help"] = domain.CrisisHelpContacts
+	}
+	writeJSON(w, http.StatusCreated, resp)
 }
 
 type appendReq struct {

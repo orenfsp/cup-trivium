@@ -24,6 +24,19 @@ async function renderQuestions() {
   }
 }
 
+function renderCrisisHelp(help) {
+  const box = $('apCrisisHelp');
+  if (!help || !help.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+  box.innerHTML = '<b>⚠ Кризисная помощь — позвоните прямо сейчас:</b>' +
+    help.map((h) => {
+      const digits = String(h.phone).replace(/\D/g, '');
+      const tel = (digits.length === 11 && digits[0] === '8') ? '+7' + digits.slice(1) : digits;
+      return `<div class="crisis-call"><div class="crisis-txt"><div class="crisis-t">${esc(h.title)}</div><div class="crisis-d">${esc(h.description || '')}</div></div>` +
+        `<a class="crisis-tel" href="tel:${tel}" aria-label="Позвонить: ${esc(h.title)}">📞 ${esc(h.phone)}</a></div>`;
+    }).join('');
+  box.classList.remove('hidden');
+}
+
 async function createAppeal() {
   hideErr('apErr');
   const desc = $('apDesc').value.trim();
@@ -54,9 +67,11 @@ async function createAppeal() {
     $('apResult').classList.remove('hidden');
     $('apResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
     $('apCrisisNote').textContent = r.crisis_detected
-      ? t('Похоже, сейчас тебе непросто. Если поддержка нужна срочно — детский телефон доверия: 8-800-2000-122 (бесплатно, круглосуточно).',
-          'Похоже, ситуация серьёзная. Если поддержка нужна срочно — детский телефон доверия: 8-800-2000-122 (бесплатно, круглосуточно).')
+      ? t('Похоже, сейчас тебе непросто. Если поддержка нужна срочно — обратись в службу из списка ниже: они работают прямо сейчас.',
+          'Похоже, ситуация серьёзная. Если поддержка нужна срочно — обратитесь в службу из списка ниже: они работают прямо сейчас.')
       : '';
+    // ТЗ «Кризисные обращения», п.2: полная кризисная помощь сразу, не дожидаясь оператора.
+    renderCrisisHelp(r.crisis_help);
     saveTrack(r.track_number);
     renderQR(r.track_number);
     $('trkInput').value = r.track_number;

@@ -25,11 +25,20 @@ export async function loadQueue() {
     const cnt = $('opQueueOverdue');
     cnt.textContent = `просроченных: ${overdue}`;
     cnt.classList.toggle('hidden', overdue === 0);
-    $('opQueue').innerHTML = q.map((a) =>
-      appealItem(a, `<span>ожидание ${fmtDur(a.waiting_sec)}</span>${a.overdue ? badge('overdue', '⏱ просрочено') : ''}` +
-        (a.no_expert_in_group ? badge('crisis', 'нет специалистов группы') : '') +
-        (a.group_overloaded ? badge('transfer', 'группа перегружена') : ''))
-    ).join('') || '<div class="note" style="margin-top:8px">очередь пуста</div>';
+    const item = (a) => appealItem(a, `<span>ожидание ${fmtDur(a.waiting_sec)}</span>${a.overdue ? badge('overdue', '⏱ просрочено') : ''}` +
+      (a.no_expert_in_group ? badge('crisis', 'нет специалистов группы') : '') +
+      (a.group_overloaded ? badge('transfer', 'группа перегружена') : ''));
+    // ТЗ «Кризисные обращения», п.3: кризисные — отдельным блоком сверху, с отсчётом ожидания.
+    const crisis = q.filter((a) => a.crisis_detected);
+    const rest = q.filter((a) => !a.crisis_detected);
+    $('opQueue').innerHTML =
+      (crisis.length
+        ? `<div class="err-box" style="margin:8px 0"><b>⚠ Кризисные — требуют немедленной реакции</b>` +
+          crisis.map((a) => item(a)).join('') + '</div>'
+        : '') +
+      (rest.length
+        ? rest.map((a) => item(a)).join('')
+        : (crisis.length ? '' : '<div class="note" style="margin-top:8px">очередь пуста</div>'));
   } catch (e) { toast(e.message); }
 }
 

@@ -64,6 +64,7 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
     <textarea id="apDesc" placeholder="Что происходит?"></textarea>
     <label data-informal="Если хочешь, оставь контакт для срочной связи (необязательно)" data-formal="При желании оставьте контакт для срочной связи (необязательно)">Если хочешь, оставь контакт для срочной связи (необязательно)</label>
     <input type="text" id="apCrisis" placeholder="например: telegram @...">
+    <div class="note" data-informal="Контакт увидит только оператор — и только если обращение окажется кризисным. Можно оставить пустым: обращение примут всё равно." data-formal="Контакт увидит только оператор — и только если обращение окажется кризисным. Можно оставить пустым: обращение примут всё равно.">Контакт увидит только оператор — и только если обращение окажется кризисным. Можно оставить пустым: обращение примут всё равно.</div>
     <h3 class="muted-h" data-informal="Пара вопросов, чтобы быстрее помочь (можно пропустить)" data-formal="Пара вопросов, чтобы быстрее помочь (можно пропустить)">Пара вопросов, чтобы быстрее помочь (можно пропустить)</h3>
     <div id="apQuestions"></div>
     <div id="apErr" class="err-box hidden"></div>
@@ -76,6 +77,7 @@ document.title = window.UI_MODE === "staff" ? "Отклик — панель с�
         <button class="ghost" data-action="download-track">💾 Скачать файл-памятку</button>
       </div>
       <div id="apQR" style="margin:12px 0;text-align:center"></div>
+      <div id="apCrisisHelp" class="hidden"></div>
       <div class="note" id="apCrisisNote"></div>
       <button class="act" data-action="verify-track">Войти по трек-номеру</button>
     </div>

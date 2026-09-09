@@ -4,7 +4,7 @@ const RU_ROLE = { applicant: 'заявитель', operator: 'оператор',
 const RU_GROUP = { psychologists: 'психолог', conflictologists: 'конфликтолог', lawyers: 'юрист', social_pedagogues: 'социальный педагог', mediators: 'конфликтолог' };
 const RU_APPTYPE = { schoolchild: 'школьник', parent: 'родитель', teacher: 'педагог' };
 const RU_AUTHOR = { applicant: 'заявитель', operator: 'оператор', expert: 'специалист', system: 'система' };
-const RU_EVENT = { status: 'статус', priority: 'приоритет', category: 'категория', assign: 'назначение эксперта', transfer_requested: 'запрос передачи', contributor_added: 'добавлен соисполнитель', append: 'дополнение от заявителя' };
+const RU_EVENT = { status: 'статус', priority: 'приоритет', category: 'категория', assign: 'назначение эксперта', transfer_requested: 'запрос передачи', contributor_added: 'добавлен соисполнитель', append: 'дополнение от заявителя', crisis: '⚠ кризис-маркеры' };
 
 const localize = (dict) => (s) => dict[s] || s;
 
