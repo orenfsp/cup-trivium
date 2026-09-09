@@ -63,7 +63,7 @@ function downloadTrack() {
 export function renderQR(track) {
   const box = $('apQR');
   box.innerHTML = '';
-  if (typeof qrcode === 'undefined') return; // библиотека QR не загрузилась (нет интернета) — просто без кода
+  if (typeof qrcode === 'undefined') return; // библиотека QR (локальная, /assets/vendor) не загрузилась — просто без кода
   try {
     const qr = qrcode(0, 'M');
     qr.addData(trackURL(track));
