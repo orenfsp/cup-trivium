@@ -39,6 +39,7 @@ button.small{min-height:38px;padding:7px 14px;font-size:14px;width:auto;margin-t
 .note{font-size:13.5px;color:var(--mut)}
 .ok-box{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:11px 13px;border-radius:10px;margin:8px 0;font-size:14.5px}
 .err-box{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:11px 13px;border-radius:10px;margin:8px 0;font-size:14.5px;overflow-wrap:anywhere}
+/* В публичном профиле подсказки формы — тёплый нейтральный тон
    вместо тревожного красного. */
 .applicant-mode .err-box{background:#fffbeb;border-color:#fde68a;color:#92400e}
 .applicant-mode .badge.rejected,.applicant-mode .badge.closed_no_response{background:#f3f4f6;color:#4b5563}
