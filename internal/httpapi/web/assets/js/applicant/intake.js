@@ -40,8 +40,10 @@ function renderCrisisHelp(help) {
 async function createAppeal() {
   hideErr('apErr');
   const desc = $('apDesc').value.trim();
-  if (desc.length === 0) {
-    showErr('apErr', new Error(t('Напиши хотя бы пару слов о том, что происходит', 'Напишите хотя бы пару слов о том, что происходит')));
+  if (desc.length < 10) {
+    showErr('apErr', new Error(t(
+      `Описание слишком короткое: нужно хотя бы 10 символов, а сейчас ${desc.length}. Расскажи чуть подробнее, что происходит.`,
+      `Описание слишком короткое: нужно хотя бы 10 символов, а сейчас ${desc.length}. Расскажите чуть подробнее, что происходит.`)));
     return;
   }
   const body = {

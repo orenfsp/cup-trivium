@@ -80,8 +80,10 @@ async function apSendMessage() {
 
 async function apAppend() {
   const text = $('avAppendText').value.trim();
-  if (text.length === 0) {
-    toast(t('Сначала напиши, что хочешь добавить', 'Сначала напишите, что хотите добавить'));
+  if (text.length < 10) {
+    toast(t(
+      `Дополнение слишком короткое: нужно хотя бы 10 символов, а сейчас ${text.length}`,
+      `Дополнение слишком короткое: нужно хотя бы 10 символов, а сейчас ${text.length}`));
     return;
   }
   try {

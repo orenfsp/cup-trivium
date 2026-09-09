@@ -128,8 +128,8 @@ func (s *Server) handleApplicantAppend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	text := strings.TrimSpace(req.Text)
-	if len(text) == 0 {
-		writeJSON(w, http.StatusBadRequest, errorResp{"addition is required"})
+	if len(text) < 10 {
+		writeJSON(w, http.StatusBadRequest, errorResp{"addition is too short: minimum 10 characters"})
 		return
 	}
 	if len(text) > 4000 {
