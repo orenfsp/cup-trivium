@@ -1,8 +1,32 @@
-@media(min-width:640px){
-  .row{flex-direction:row;gap:12px}
-  .row>*{flex:1}
-  button.act,button.ghost,button.ok,button.danger{width:auto}
-  .grid2{grid-template-columns:1fr 1fr}
-  main{padding:20px 16px 48px}
-  header{flex-direction:row;align-items:center;gap:16px;padding:12px 20px}
+@media (min-width: 640px) {
+  .row {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .row > * {
+    flex: 1;
+  }
+
+  button.act,
+  button.ghost,
+  button.ok,
+  button.danger {
+    width: auto;
+  }
+
+  .grid2 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  main {
+    padding: 20px 16px 48px;
+  }
+
+  header {
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+  }
 }

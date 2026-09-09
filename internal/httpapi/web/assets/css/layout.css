@@ -1,13 +1,68 @@
 /* Каркас страницы: шапка, контейнер контента и режимы портов.
    Публичный порт показывает только раздел заявителя, служебный — только
    панель сотрудника (класс на body ставит bootstrap-скрипт в index.html). */
-header{position:sticky;top:0;z-index:20;background:#111827;color:#fff;padding:10px 14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 8px rgba(0,0,0,.25)}
-header .top{display:flex;align-items:center;gap:10px}
-header h1{font-size:18px;margin:0}
-header .who{margin-left:auto;font-size:13px;color:#9ca3af;max-width:45%;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-main{max-width:760px;margin:0 auto;padding:14px 12px calc(40px + var(--safe-b));display:flex;flex-direction:column;gap:14px}
-.staff-mode #secApplicant{display:none!important}
-.staff-mode #secStaff{display:block!important}
-.applicant-mode #secStaff{display:none!important}
-.applicant-mode #secApplicant{display:block!important}
-.grid2{display:grid;grid-template-columns:1fr;gap:14px}
+header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #111827;
+  color: #fff;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, .25);
+}
+
+header .top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+header h1 {
+  font-size: 18px;
+  margin: 0;
+}
+
+header .who {
+  margin-left: auto;
+  font-size: 13px;
+  color: #9ca3af;
+  max-width: 45%;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 14px 12px calc(40px + var(--safe-b));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.staff-mode #secApplicant {
+  display: none !important;
+}
+
+.staff-mode #secStaff {
+  display: block !important;
+}
+
+.applicant-mode #secStaff {
+  display: none !important;
+}
+
+.applicant-mode #secApplicant {
+  display: block !important;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
