@@ -260,6 +260,7 @@ a.small {
   color: var(--mut);
   font-weight: 600;
   flex-shrink: 0;
+  overflow-wrap: anywhere;
 }
 
 .kv span {
@@ -313,6 +314,8 @@ a.small {
 .note {
   font-size: 13.5px;
   color: var(--mut);
+  margin: 6px 0;
+  overflow-wrap: anywhere;
 }
 
 .ok-box {
@@ -432,6 +435,7 @@ a.small {
   border-left: 2px solid var(--line);
   position: relative;
   margin-left: 6px;
+  overflow-wrap: anywhere;
 }
 
 .timeline li::before {
@@ -468,6 +472,12 @@ pre.raw {
   font-weight: 600;
   text-decoration: none;
   font-size: 15px;
+}
+
+/* События аудита рендерятся простыми div — длинные логины/причины
+   не должны раздвигать карточку. */
+#dEvents > div {
+  overflow-wrap: anywhere;
 }
 
 .divider {
@@ -515,6 +525,12 @@ pre.raw {
 .filter-line select {
   flex: 1;
   min-width: 170px;
+  width: auto;
+}
+
+.filter-line input[type=date] {
+  flex: 1;
+  min-width: 130px;
   width: auto;
 }
 
@@ -615,6 +631,7 @@ pre.raw {
 .form-foot {
   display: flex;
   justify-content: flex-end;
+  margin-top: 12px;
 }
 
 .act-hint {

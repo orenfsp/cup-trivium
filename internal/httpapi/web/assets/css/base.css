@@ -13,6 +13,14 @@
   --safe-b: env(safe-area-inset-bottom, 0px);
 }
 
+/* Глобальный border-box: без него поля форм с width:100% + padding
+   выходят за границы родительского блока. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 html {
   -webkit-text-size-adjust: 100%;
 }
@@ -35,6 +43,11 @@ label {
 select,
 input[type=text],
 input[type=password],
+input[type=number],
+input[type=date],
+input[type=email],
+input[type=tel],
+input[type=url],
 textarea {
   width: 100%;
   padding: 12px;
@@ -71,7 +84,7 @@ textarea {
 .row {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 12px;
 }
 
 .hidden {
