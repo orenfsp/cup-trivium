@@ -42,7 +42,9 @@ async function refreshDetail(silent) {
   const isOperator = !!me && me.role === 'operator';
   const isAdmin = !!me && me.role === 'admin';
   $('dStatus').innerHTML = badge(a.status, ruStatus(a.status));
-  $('dCrisis').classList.toggle('hidden', !a.crisis_detected);
+  // Кризисная пометка — только оператору и эксперту: администратор работает
+  // с обращениями, но не должен видеть, что обращение кризисное.
+  $('dCrisis').classList.toggle('hidden', !a.crisis_detected || isAdmin);
   $('dPriority').value = a.priority; // чтобы открытие карточки не сбрасывало приоритет на «низкий»
   // Текущая категория — в селект смены категории (если опции ещё не загружены, подхватит поллер)
   const dCat = $('dCategory');
@@ -60,7 +62,7 @@ async function refreshDetail(silent) {
     kv('Возвратов', a.return_count) +
     kv('Запрос передачи', a.transfer_requested ? 'да' : 'нет') +
     (a.rejection_reason ? kv('Причина отклонения', esc(a.rejection_reason)) : '') +
-    (a.crisis_contact ? kv('Кризисный контакт', esc(a.crisis_contact)) : '');
+    (!isAdmin && a.crisis_contact ? kv('Кризисный контакт', esc(a.crisis_contact)) : '');
   $('dDesc').textContent = a.description || '';
   const atts = a.attachments || [];
   $('dAttachTitle').classList.toggle('hidden', isAdmin || !atts.length);
