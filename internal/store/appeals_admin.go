@@ -18,6 +18,11 @@ import (
 func (st *Store) AdminSetStatus(ctx context.Context, appealID uuid.UUID,
 	actorID *uuid.UUID, actorRole domain.Role, to domain.Status, reason string) (Appeal, error) {
 	return st.withAppealLock(ctx, appealID, func(ctx context.Context, tx *sql.Tx, a Appeal) error {
+		// Терминальный статус — архив: завершённое/отклонённое/закрытое
+		// обращение нельзя вернуть в работу даже администратору.
+		if a.Status.Terminal() {
+			return domain.ErrValidation
+		}
 		if a.Status == to {
 			return domain.ErrConflict
 		}

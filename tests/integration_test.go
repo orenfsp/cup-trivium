@@ -503,6 +503,30 @@ func TestIT_LoginBruteforceRateLimit(t *testing.T) {
 	}
 }
 
+// ТЗ 5.x: терминальный статус — архив; админ не может ни назначить
+// терминальный статус, ни «разблокировать» уже завершённое обращение.
+func TestIT_AdminCannotChangeTerminalAppeal(t *testing.T) {
+	e := newIT(t)
+	appealID, _ := e.createAppeal("Обращение, которое оператор отклонит", "")
+	opTok := e.login("operator")
+	admTok := e.login("admin")
+
+	// Оператор отклоняет обращение — оно уходит в архив.
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/reject", opTok, nil,
+		map[string]string{"reason": "обращение вне компетенции"}, http.StatusOK)
+
+	// Админ не может вывести архивное обращение обратно в работу.
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/admin-status", admTok, nil,
+		map[string]string{"status": "new", "reason": "попытка разблокировки архива"},
+		http.StatusBadRequest)
+
+	// На живом (незавершённом) обращении разблокировка по-прежнему работает.
+	liveID, _ := e.createAppeal("Живое обращение для разблокировки", "")
+	e.mustDo(e.staff, "POST", "/api/appeals/"+liveID+"/admin-status", admTok, nil,
+		map[string]string{"status": "assigned", "reason": "разблокировка зависшего"},
+		http.StatusOK)
+}
+
 // CSV-экспорт: BOM для Excel, фиксированный заголовок, строка на обращение.
 func TestIT_ExportCSV(t *testing.T) {
 	e := newIT(t)

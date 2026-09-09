@@ -47,6 +47,18 @@ func (s *Server) handleAdminSetStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResp{"reason is required (min 5 characters)"})
 		return
 	}
+	// Терминальный статус — архив: из completed/rejected/closed_no_response
+	// обращение нельзя вернуть в работу. Хендлер даёт понятный ответ,
+	// а защита от гонок — повторная проверка внутри транзакции в сторе.
+	cur, err := s.st.GetAppealByID(r.Context(), id)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if cur.Status.Terminal() {
+		writeJSON(w, http.StatusBadRequest, errorResp{"appeal is already completed/rejected/closed_no_response — it is archived and its status cannot be changed"})
+		return
+	}
 	a, err := s.st.AdminSetStatus(r.Context(), id, actorPtr(p), p.Role, to, req.Reason)
 	if err != nil {
 		writeErr(w, err)

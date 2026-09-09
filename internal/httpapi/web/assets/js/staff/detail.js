@@ -109,7 +109,10 @@ async function refreshDetail(silent) {
   $('dExActions').classList.toggle('hidden', !(me && me.role === 'expert'));
   $('opCompleteRow').classList.toggle('hidden', !isOperator);
   $('opRejectRow').classList.toggle('hidden', !isOperator);
-  $('adStatusRow').classList.toggle('hidden', !isAdmin);
+  // Терминальный статус — архив: у завершённых/отклонённых/закрытых без
+  // ответа обращений разблокировка статуса недоступна даже админу.
+  const TERMINAL_STATUS = { completed: 1, rejected: 1, closed_no_response: 1 };
+  $('adStatusRow').classList.toggle('hidden', !isAdmin || !!TERMINAL_STATUS[a.status]);
   $('dDescTitle').classList.toggle('hidden', isAdmin);
   $('dDesc').classList.toggle('hidden', isAdmin);
   $('dDescRestricted').classList.toggle('hidden', !isAdmin);
