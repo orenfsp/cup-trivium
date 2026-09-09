@@ -36,6 +36,12 @@ func (s *Server) handleAdminSetStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, errorResp{"status is invalid"})
 		return
 	}
+	// Админ только «разблокирует» зависшие обращения: закрывать их
+	// (завершено / отклонено / закрыто без ответа) он не должен.
+	if to.Terminal() {
+		writeJSON(w, http.StatusBadRequest, errorResp{"terminal status is not allowed: completed, rejected and closed_no_response are set by the process, not by admin"})
+		return
+	}
 	req.Reason = strings.TrimSpace(req.Reason)
 	if len(req.Reason) < 5 {
 		writeJSON(w, http.StatusBadRequest, errorResp{"reason is required (min 5 characters)"})
