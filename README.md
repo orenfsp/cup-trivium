@@ -80,6 +80,17 @@ docker compose up --build -d
 - `COOKIE_SECURE` — если `1`, то куки только по HTTPS (по умолчанию `false`)
 - `SEED_DEFAULT_PWD` — пароль для демо-пользователей
 
+### Секреты и `.env`
+
+Пароль PostgreSQL и пароль демо-пользователей не хранятся в `docker-compose.yml`: они читаются из файла `.env` рядом с compose-файлом (сам `.env` в git не попадает — он в `.gitignore`). Шаблон — в `.env.example`: скопируйте его (`cp .env.example .env`) и задайте свои значения.
+
+---
+
+## Безопасность
+
+- На все ответы (оба порта) ставятся заголовки: `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`. `Strict-Transport-Security` добавляется при `COOKIE_SECURE=1` (деплой за TLS-терминацией).
+- Сотрудник может сменить свой пароль: `POST /api/auth/password` с `current_password`/`new_password` (кнопка «Сменить пароль» в панелях). После смены все прочие сессии пользователя инвалидируются, текущая — остаётся.
+
 ---
 
 ## Что из эндпоинтов есть (кратко)
@@ -105,7 +116,7 @@ docker compose up --build -d
 - Оператор: `/api/operator/queue` (очередь новых), `/api/operator/appeals` (список с фильтрами), а также действия над конкретной заявкой: назначение, приоритет, категория, отклонение, завершение, закрытие, возврат.
 - Эксперт: `/api/expert/appeals` (только его заявки), статусные действия (взять, уточнить, рекомендация, запрос передачи, соисполнители), чат и заметки.
 - Админ: `/api/admin/appeals`, `/api/admin/users`, `/api/admin/categories`, `/api/admin/complaints`, а также настройки маршрутизации (`/api/admin/settings`).
-- Для всех сотрудников: `/api/staff/experts` (список специалистов с нагрузкой), `/api/mystats` (персональная аналитика), `/api/export/appeals` (CSV-выгрузка).
+- Для всех сотрудников: `/api/staff/experts` (список специалистов с нагрузкой), `/api/mystats` (персональная аналитика), `/api/export/appeals` (CSV-выгрузка), `POST /api/auth/password` (смена своего пароля).
 - Также есть эндпоинты для присутствия (кто сейчас в карточке и печатает) — `/api/appeals/{id}/presence`, и для аудита — `/api/appeals/{id}/events`.
 
 ---

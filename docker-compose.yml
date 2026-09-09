@@ -4,7 +4,8 @@ services:
     container_name: otklik-db
     environment:
       POSTGRES_USER: otklik
-      POSTGRES_PASSWORD: "default_password"
+      # Пароль берётся из .env (см. .env.example); в репозитории не хранится.
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}"
       POSTGRES_DB: otklik
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -22,10 +23,10 @@ services:
     environment:
       LISTEN_ADDR: ":8080"
       STAFF_LISTEN_ADDR: ":8081"
-      DATABASE_URL: "postgres://otklik:default_password@db:5432/otklik?sslmode=disable"
+      DATABASE_URL: "postgres://otklik:${POSTGRES_PASSWORD}@db:5432/otklik?sslmode=disable"
       ATTACHMENTS_DIR: "/app/data/attachments"
       SESSION_TTL_MIN: "120"
-      SEED_DEFAULT_PWD: "otklik-demo-2026"
+      SEED_DEFAULT_PWD: "${SEED_DEFAULT_PWD:-otklik-demo-2026}"
     ports:
       - "8080:8080"
       - "8081:8081"

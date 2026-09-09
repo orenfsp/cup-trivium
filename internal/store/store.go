@@ -97,6 +97,21 @@ func (st *Store) SetUserActive(ctx context.Context, id uuid.UUID, active bool) e
 	return tx.Commit()
 }
 
+// UpdateUserPassword заменяет хеш пароля пользователя (смена пароля самим сотрудником).
+func (st *Store) UpdateUserPassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	_, err := st.DB.ExecContext(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1`, id, passwordHash)
+	return err
+}
+
+// DeleteStaffSessionsForUser удаляет все сессии пользователя, кроме exceptTokenHash
+// (пустой exceptTokenHash — удалить все, используется при деактивации).
+func (st *Store) DeleteStaffSessionsForUser(ctx context.Context, userID uuid.UUID, exceptTokenHash string) error {
+	_, err := st.DB.ExecContext(ctx,
+		`DELETE FROM staff_sessions WHERE user_id = $1 AND ($2 = '' OR token_hash <> $2)`,
+		userID, exceptTokenHash)
+	return err
+}
+
 func (st *Store) CreateStaffSession(ctx context.Context, tokenHash string, userID uuid.UUID, expires time.Time) error {
 	_, err := st.DB.ExecContext(ctx,
 		`INSERT INTO staff_sessions (token_hash, user_id, expires_at) VALUES ($1, $2, $3)`,

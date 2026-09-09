@@ -697,3 +697,58 @@ func TestIT_Presence(t *testing.T) {
 		t.Errorf("посторонний эксперт в присутствии: код = %d, want 403", w.Code)
 	}
 }
+
+// Смена пароля сотрудником: /api/auth/password проверяет текущий пароль,
+// обновляет хеш и инвалидирует все сессии, кроме той, из которой меняли.
+func TestIT_ChangePassword(t *testing.T) {
+	e := newIT(t)
+	admTok := e.login("admin")
+
+	// Отдельный пользователь, чтобы не ломать демо-учётки для остальных тестов.
+	e.mustDo(e.staff, "POST", "/api/admin/users", admTok, nil, map[string]string{
+		"login": "tmpuser1", "password": "temp-pass-123", "role": "operator",
+	}, http.StatusCreated)
+
+	loginAs := func(login, pwd string) string {
+		e.t.Helper()
+		w := e.mustDo(e.staff, "POST", "/api/auth/login", "", nil,
+			map[string]string{"login": login, "password": pwd}, http.StatusOK)
+		var out struct {
+			SessionToken string `json:"session_token"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+			e.t.Fatal(err)
+		}
+		return out.SessionToken
+	}
+
+	// Без аутентификации эндпоинт закрыт.
+	e.mustDo(e.staff, "POST", "/api/auth/password", "", nil,
+		map[string]string{"current_password": "x", "new_password": "y"}, http.StatusUnauthorized)
+
+	tok1 := loginAs("tmpuser1", "temp-pass-123")
+	tok2 := loginAs("tmpuser1", "temp-pass-123")
+
+	// Неверный текущий пароль отклоняется.
+	e.mustDo(e.staff, "POST", "/api/auth/password", tok1, nil,
+		map[string]string{"current_password": "wrong", "new_password": "new-pass-456"}, http.StatusUnauthorized)
+	// Слишком короткий и совпадающий с текущим — отклоняются.
+	e.mustDo(e.staff, "POST", "/api/auth/password", tok1, nil,
+		map[string]string{"current_password": "temp-pass-123", "new_password": "short"}, http.StatusBadRequest)
+	e.mustDo(e.staff, "POST", "/api/auth/password", tok1, nil,
+		map[string]string{"current_password": "temp-pass-123", "new_password": "temp-pass-123"}, http.StatusBadRequest)
+
+	// Корректная смена.
+	e.mustDo(e.staff, "POST", "/api/auth/password", tok1, nil,
+		map[string]string{"current_password": "temp-pass-123", "new_password": "new-pass-456"}, http.StatusOK)
+
+	// Текущая сессия жива, вторая — инвалидирована.
+	e.mustDo(e.staff, "GET", "/api/mystats", tok1, nil, nil, http.StatusOK)
+	e.mustDo(e.staff, "GET", "/api/mystats", tok2, nil, nil, http.StatusUnauthorized)
+
+	// Старый пароль больше не работает, новый — входит.
+	e.mustDo(e.staff, "POST", "/api/auth/login", "", nil,
+		map[string]string{"login": "tmpuser1", "password": "temp-pass-123"}, http.StatusUnauthorized)
+	loginAs("tmpuser1", "new-pass-456")
+}
+

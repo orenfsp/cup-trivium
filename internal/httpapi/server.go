@@ -33,11 +33,35 @@ type Server struct {
 	presence *presenceHub
 }
 
-func baseRouter() *chi.Mux {
+// securityHeaders добавляет защитные заголовки ко всем ответам обоих портов.
+// HSTS выставляется только при COOKIE_SECURE=true: приложение рассчитано на
+// TLS-терминацию перед сервером, а по plain HTTP заголовок игнорируется браузерами.
+func securityHeaders(cfg config.Config) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			h := w.Header()
+			h.Set("X-Content-Type-Options", "nosniff")
+			h.Set("X-Frame-Options", "DENY")
+			h.Set("Referrer-Policy", "no-referrer")
+			h.Set("Content-Security-Policy",
+				"default-src 'self'; script-src 'self' 'unsafe-inline'; "+
+					"style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "+
+					"connect-src 'self'; object-src 'none'; base-uri 'self'; "+
+					"form-action 'self'; frame-ancestors 'none'")
+			if cfg.CookieSecure {
+				h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func baseRouter(cfg config.Config) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeaders(cfg))
 	return r
 }
 
@@ -48,7 +72,7 @@ func healthHandler(w http.ResponseWriter, _ *http.Request) {
 func New(cfg config.Config, st *store.Store) http.Handler {
 	s := &Server{cfg: cfg, st: st, rl: newRateLimiter(), presence: newPresenceHub()}
 
-	r := baseRouter()
+	r := baseRouter(cfg)
 	r.Use(s.authMW(false, true))
 
 	r.Get("/api/health", healthHandler)
@@ -92,7 +116,7 @@ func New(cfg config.Config, st *store.Store) http.Handler {
 func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 	s := &Server{cfg: cfg, st: st, rl: newRateLimiter(), presence: newPresenceHub()}
 
-	r := baseRouter()
+	r := baseRouter(cfg)
 	r.Use(s.authMW(true, false))
 
 	r.Get("/api/health", healthHandler)
@@ -109,6 +133,7 @@ func NewStaff(cfg config.Config, st *store.Store) http.Handler {
 
 	r.Post("/api/auth/login", s.handleLogin)
 	r.Post("/api/auth/logout", s.handleLogout)
+	r.With(s.requireStaff).Post("/api/auth/password", s.handleChangePassword)
 	r.Get("/api/me", s.handleMe)
 
 	// Общая группа вне ролевых: в chi поздняя регистрация перекрывает раннюю.

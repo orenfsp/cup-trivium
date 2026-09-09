@@ -233,3 +233,48 @@ func TestVerifyTrackRequiresNumber(t *testing.T) {
 		t.Errorf("пустой трек-номер: код = %d, want 400", w.Code)
 	}
 }
+
+// Защитные заголовки ставятся на оба порта: страницы и API.
+func TestSecurityHeaders(t *testing.T) {
+	cfg := testCfg()
+	for name, h := range map[string]http.Handler{
+		"applicant": httpapi.New(cfg, nil),
+		"staff":     httpapi.NewStaff(cfg, nil),
+	} {
+		for _, p := range []string{"/", "/api/health"} {
+			w := httptest.NewRecorder()
+			h.ServeHTTP(w, httptest.NewRequest("GET", p, nil))
+			if v := w.Header().Get("Content-Security-Policy"); v == "" {
+				t.Errorf("%s %s: Content-Security-Policy отсутствует", name, p)
+			} else {
+				for _, want := range []string{"default-src 'self'", "frame-ancestors 'none'", "object-src 'none'"} {
+					if !strings.Contains(v, want) {
+						t.Errorf("%s %s: CSP не содержит %q: %q", name, p, want, v)
+					}
+				}
+			}
+			if v := w.Header().Get("X-Frame-Options"); v != "DENY" {
+				t.Errorf("%s %s: X-Frame-Options = %q, want DENY", name, p, v)
+			}
+			if v := w.Header().Get("X-Content-Type-Options"); v != "nosniff" {
+				t.Errorf("%s %s: X-Content-Type-Options = %q, want nosniff", name, p, v)
+			}
+			if v := w.Header().Get("Referrer-Policy"); v == "" {
+				t.Errorf("%s %s: Referrer-Policy отсутствует", name, p)
+			}
+			if v := w.Header().Get("Strict-Transport-Security"); v != "" {
+				t.Errorf("%s %s: HSTS не должен ставиться без COOKIE_SECURE: %q", name, p, v)
+			}
+		}
+	}
+
+	// HSTS включается только в HTTPS-режиме (COOKIE_SECURE=true).
+	secure := testCfg()
+	secure.CookieSecure = true
+	w := httptest.NewRecorder()
+	httpapi.NewStaff(secure, nil).ServeHTTP(w, httptest.NewRequest("GET", "/api/health", nil))
+	if v := w.Header().Get("Strict-Transport-Security"); !strings.Contains(v, "max-age") {
+		t.Errorf("COOKIE_SECURE: Strict-Transport-Security = %q, want max-age...", v)
+	}
+}
+

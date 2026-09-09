@@ -109,6 +109,74 @@ func bearerToken(r *http.Request) string {
 	return ""
 }
 
+type changePasswordReq struct {
+	CurrentPassword string `json:"current_password"`
+	NewPassword     string `json:"new_password"`
+}
+
+// handleChangePassword: сотрудник меняет свой пароль, зная текущий.
+// Все прочие сессии пользователя инвалидируются, текущая — остаётся.
+func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
+	p, ok := principalFrom(r.Context())
+	if !ok || !p.IsStaff() {
+		writeJSON(w, http.StatusUnauthorized, errorResp{"staff authentication required"})
+		return
+	}
+	var req changePasswordReq
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		writeJSON(w, http.StatusBadRequest, errorResp{"current_password and new_password are required"})
+		return
+	}
+	if !s.rl.allow("chpwd:"+p.Login, 5, time.Minute) {
+		writeJSON(w, http.StatusTooManyRequests, errorResp{"too many attempts, try later"})
+		return
+	}
+
+	_, hash, err := s.st.GetUserByLogin(r.Context(), p.Login)
+	if err == nil {
+		err = bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.CurrentPassword))
+	}
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, errorResp{"invalid credentials"})
+		return
+	}
+	s.rl.reset("chpwd:" + p.Login)
+
+	if len(req.NewPassword) < 8 {
+		writeJSON(w, http.StatusBadRequest, errorResp{"password must be at least 8 characters"})
+		return
+	}
+	if req.NewPassword == req.CurrentPassword {
+		writeJSON(w, http.StatusBadRequest, errorResp{"new password must differ from current"})
+		return
+	}
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		writeErr(w, err)
+		return
+	}
+	if err := s.st.UpdateUserPassword(r.Context(), p.UserID, string(newHash)); err != nil {
+		writeErr(w, err)
+		return
+	}
+
+	// Смена пароля — повод выкинуть прочие сессии (другие вкладки/устройства).
+	currentHash := ""
+	if bt := bearerToken(r); bt != "" {
+		currentHash = hashToken(bt)
+	} else if c, err := r.Cookie(staffCookie); err == nil && c.Value != "" {
+		currentHash = hashToken(c.Value)
+	}
+	if err := s.st.DeleteStaffSessionsForUser(r.Context(), p.UserID, currentHash); err != nil {
+		writeErr(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "password changed"})
+}
+
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	tok := ""
 	if c, err := r.Cookie(staffCookie); err == nil && c.Value != "" {
