@@ -1,3 +1,4 @@
+/* Переиспользуемые виджеты: карточки, кнопки, бейджи статусов, элементы
    списков, чат, трек-номер, инфо-блоки, кризисная помощь, таймлайн. */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
 .card h2{margin:0 0 10px;font-size:18px}

@@ -1,3 +1,4 @@
+/* Каркас страницы: шапка, контейнер контента и режимы портов.
    Публичный порт показывает только раздел заявителя, служебный — только
    панель сотрудника (класс на body ставит bootstrap-скрипт в index.html). */
 header{position:sticky;top:0;z-index:20;background:#111827;color:#fff;padding:10px 14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 1px 8px rgba(0,0,0,.25)}

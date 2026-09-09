@@ -1,3 +1,4 @@
+/* Дизайн-токены, сброс, типографика и формы.
    Остальные слои: components.css (виджеты), layout.css (каркас), responsive.css. */
 :root{
   --bg:#f3f4f6;--card:#fff;--ink:#1e2430;--mut:#6b7280;--acc:#2563eb;
