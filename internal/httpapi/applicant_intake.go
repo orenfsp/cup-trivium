@@ -165,6 +165,12 @@ func (s *Server) handleVerifyTrack(w http.ResponseWriter, r *http.Request) {
 	}
 	appealID, err := s.st.FindAppealIDByTrackHash(r.Context(), domain.HashTrack(req.TrackNumber))
 	if err != nil {
+		// Два лимита: минутный (5/мин, с задержкой при превышении) и часовой (20/час).
+		if !s.rl.allow("trackmin:"+ip, 5, time.Minute) {
+			time.Sleep(3 * time.Second) // ТЗ 4.7: при превышении — задержка перед следующей попыткой
+			writeJSON(w, http.StatusTooManyRequests, errorResp{"too many attempts, try later"})
+			return
+		}
 		if !s.rl.allow("track:"+ip, 20, time.Hour) {
 			writeJSON(w, http.StatusTooManyRequests, errorResp{"too many attempts, try later"})
 			return
@@ -183,6 +189,7 @@ func (s *Server) handleVerifyTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.rl.reset("track:" + ip)
+	s.rl.reset("trackmin:" + ip)
 	s.setCookie(w, applicantCookie, token)
 	s.writeApplicantView(w, r, appealID)
 }

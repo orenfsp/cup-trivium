@@ -1,6 +1,6 @@
 import { $, esc, fmtTime, badge, toast } from '../core/dom.js';
 import { api } from '../core/api.js';
-import { ruStatus, ruRole, ruGroup } from '../core/i18n.js';
+import { ruStatus, ruRole, ruGroup, ruAppType } from '../core/i18n.js';
 import { registerActions } from '../core/actions.js';
 import { loadCategories } from '../categories.js';
 
@@ -8,21 +8,41 @@ const shortId = (s) => (s ? String(s).slice(0, 8) : '—');
 
 export async function loadStats() {
   try {
-    const s = await api('GET', '/api/admin/stats');
-    const avg = s.avg_resolution_hours != null ? (Math.round(s.avg_resolution_hours * 10) / 10) + ' ч' : '—';
+    const q = new URLSearchParams();
+    if ($('adFrom') && $('adFrom').value) q.set('from', $('adFrom').value);
+    if ($('adTo') && $('adTo').value) q.set('to', $('adTo').value);
+    const s = await api('GET', '/api/admin/stats' + (q.toString() ? '?' + q.toString() : ''));
+    const fmtNum = (v, suffix) => (v == null ? '—' : (Math.round(v * 10) / 10) + (suffix || ''));
+    const fmtDay = (v) => (v ? new Date(v).toLocaleDateString('ru-RU') : '…');
+    const period = (s.period_from || s.period_to)
+      ? fmtDay(s.period_from) + ' — ' + fmtDay(s.period_to) : 'за всё время';
     const row = (l, v) => `<div class="kv"><b>${l}</b><span>${v}</span></div>`;
+    const workload = (s.workload || []).map((w) => {
+      const who = `${esc(w.login)} (${esc(ruRole(w.role))})`;
+      if (w.role === 'operator') return row(who, 'назначил обращений: ' + w.assigned);
+      return row(who, 'взял: ' + w.assigned + ' · в работе: ' + w.active + ' · завершено: ' + w.completed +
+        ' · ср. решение: ' + fmtNum(w.avg_resolution_hours, ' ч'));
+    }).join('') || 'нет данных';
     $('adStats').innerHTML =
+      row('Период', period) +
       row('Всего обращений', s.total) +
       row('В работе', s.active + ' (срочных: ' + s.urgent_active + ')') +
       row('Новых за 7 / 30 дней', s.last_7_days + ' / ' + s.last_30_days) +
       row('Завершено', s.resolved) +
-      row('Среднее время решения', avg) +
+      row('Доля срочных', fmtNum(s.urgent_share_pct, '%')) +
+      row('Доля возвратов на доработку', fmtNum(s.return_share_pct, '%')) +
+      row('Ср. время до принятия оператором', fmtNum(s.avg_assign_minutes, ' мин')) +
+      row('Ср. время до первого ответа', fmtNum(s.avg_first_response_minutes, ' мин')) +
+      row('Среднее время решения', fmtNum(s.avg_resolution_hours, ' ч')) +
       '<h3>По статусам</h3>' +
       (s.by_status || []).map((r) => row(esc(ruStatus(r.label)), r.count)).join('') +
-      '<h3>Топ категорий</h3>' +
-      (s.top_categories || []).map((r) => row(esc(r.label), r.count)).join('') +
+      '<h3>По типам заявителей</h3>' +
+      (s.by_applicant_type || []).map((r) => row(esc(ruAppType(r.label)), r.count)).join('') +
+      '<h3>По категориям</h3>' +
+      (s.by_category || []).map((r) => row(esc(r.label), r.count)).join('') +
       '<h3>По специальностям</h3>' +
-      (s.by_specialist_group || []).map((r) => row(r.label === 'free' ? 'свободная форма' : esc(ruGroup(r.label)), r.count)).join('');
+      (s.by_specialist_group || []).map((r) => row(r.label === 'free' ? 'свободная форма' : esc(ruGroup(r.label)), r.count)).join('') +
+      '<h3>Нагрузка по сотрудникам</h3>' + workload;
   } catch (e) { $('adStats').textContent = e.message; }
 }
 

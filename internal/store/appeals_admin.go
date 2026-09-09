@@ -3,6 +3,11 @@ package store
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"math"
+	"sort"
+	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -132,25 +137,81 @@ type StatRow struct {
 	Count int    `json:"count"`
 }
 
-type AdminStats struct {
-	Total             int       `json:"total"`
-	Active            int       `json:"active"`
-	UrgentActive      int       `json:"urgent_active"`
-	Last7Days         int       `json:"last_7_days"`
-	Last30Days        int       `json:"last_30_days"`
-	Resolved          int       `json:"resolved"`
-	AvgResolutionHrs  *float64  `json:"avg_resolution_hours"`
-	ByStatus          []StatRow `json:"by_status"`
-	TopCategories     []StatRow `json:"top_categories"`
-	BySpecialistGroup []StatRow `json:"by_specialist_group"`
+type WorkloadRow struct {
+	Login            string   `json:"login"`
+	Role             string   `json:"role"`
+	Assigned         int      `json:"assigned"`
+	Active           int      `json:"active"`
+	Completed        int      `json:"completed"`
+	AvgResolutionHrs *float64 `json:"avg_resolution_hours"`
 }
 
-func (st *Store) GetAdminStats(ctx context.Context) (AdminStats, error) {
+type AdminStats struct {
+	PeriodFrom          *time.Time    `json:"period_from,omitempty"`
+	PeriodTo            *time.Time    `json:"period_to,omitempty"`
+	Total               int           `json:"total"`
+	Active              int           `json:"active"`
+	UrgentActive        int           `json:"urgent_active"`
+	Last7Days           int           `json:"last_7_days"`
+	Last30Days          int           `json:"last_30_days"`
+	Resolved            int           `json:"resolved"`
+	UrgentSharePct      float64       `json:"urgent_share_pct"`
+	ReturnSharePct      float64       `json:"return_share_pct"`
+	AvgResolutionHrs    *float64      `json:"avg_resolution_hours"`
+	AvgAssignMin        *float64      `json:"avg_assign_minutes"`
+	AvgFirstResponseMin *float64      `json:"avg_first_response_minutes"`
+	ByStatus            []StatRow     `json:"by_status"`
+	ByCategory          []StatRow     `json:"by_category"`
+	ByApplicantType     []StatRow     `json:"by_applicant_type"`
+	BySpecialistGroup   []StatRow     `json:"by_specialist_group"`
+	Workload            []WorkloadRow `json:"workload"`
+}
+
+// periodFilter строит условие по created_at обращения; nil-границы не фильтруют.
+func periodFilter(from, to *time.Time, args *[]any) string {
+	conds := []string{"TRUE"}
+	if from != nil {
+		*args = append(*args, *from)
+		conds = append(conds, fmt.Sprintf("a.created_at >= $%d", len(*args)))
+	}
+	if to != nil {
+		*args = append(*args, *to)
+		conds = append(conds, fmt.Sprintf("a.created_at < $%d", len(*args)))
+	}
+	return strings.Join(conds, " AND ")
+}
+
+func pct(part, total int) float64 {
+	if total == 0 {
+		return 0
+	}
+	return math.Round(float64(part)/float64(total)*1000) / 10
+}
+
+func nullToPtr(v sql.NullFloat64) *float64 {
+	if !v.Valid {
+		return nil
+	}
+	return &v.Float64
+}
+
+func (st *Store) GetAdminStats(ctx context.Context, from, to *time.Time) (AdminStats, error) {
 	var s AdminStats
-	if err := st.DB.QueryRowContext(ctx,
-		`SELECT count(*) FROM appeals`).Scan(&s.Total); err != nil {
+	s.PeriodFrom, s.PeriodTo = from, to
+
+	var urgentTotal, returned int
+	var args []any
+	if err := st.DB.QueryRowContext(ctx, `
+		SELECT count(*),
+		       count(*) FILTER (WHERE a.priority = 'urgent'),
+		       count(*) FILTER (WHERE a.return_count > 0)
+		FROM appeals a
+		WHERE `+periodFilter(from, to, &args), args...).Scan(&s.Total, &urgentTotal, &returned); err != nil {
 		return s, err
 	}
+	s.UrgentSharePct = pct(urgentTotal, s.Total)
+	s.ReturnSharePct = pct(returned, s.Total)
+
 	if err := st.DB.QueryRowContext(ctx, `
 		SELECT count(*) FROM appeals
 		WHERE status NOT IN ('completed','rejected','closed_no_response')`).Scan(&s.Active); err != nil {
@@ -170,67 +231,168 @@ func (st *Store) GetAdminStats(ctx context.Context) (AdminStats, error) {
 		`SELECT count(*) FROM appeals WHERE created_at > now() - interval '30 days'`).Scan(&s.Last30Days); err != nil {
 		return s, err
 	}
+
 	var avg sql.NullFloat64
+	args = nil
 	if err := st.DB.QueryRowContext(ctx, `
-		SELECT count(*), avg(extract(epoch from (updated_at - created_at)) / 3600.0)
-		FROM appeals WHERE status = 'completed'`).Scan(&s.Resolved, &avg); err != nil {
+		SELECT count(*), avg(extract(epoch from (a.updated_at - a.created_at)) / 3600.0)
+		FROM appeals a
+		WHERE a.status = 'completed' AND `+periodFilter(from, to, &args), args...).Scan(&s.Resolved, &avg); err != nil {
 		return s, err
 	}
-	if avg.Valid {
-		v := avg.Float64
-		s.AvgResolutionHrs = &v
+	s.AvgResolutionHrs = nullToPtr(avg)
+
+	args = nil
+	if err := st.DB.QueryRowContext(ctx, `
+		SELECT avg(extract(epoch from (ea.first_assign - a.created_at)) / 60.0)
+		FROM appeals a
+		JOIN LATERAL (
+		    SELECT min(e.created_at) AS first_assign
+		    FROM appeal_events e
+		    WHERE e.appeal_id = a.id AND e.event_type = 'assign'
+		) ea ON ea.first_assign IS NOT NULL
+		WHERE `+periodFilter(from, to, &args), args...).Scan(&avg); err != nil {
+		return s, err
+	}
+	s.AvgAssignMin = nullToPtr(avg)
+
+	args = nil
+	if err := st.DB.QueryRowContext(ctx, `
+		SELECT avg(extract(epoch from (m.first_reply - a.created_at)) / 60.0)
+		FROM appeals a
+		JOIN LATERAL (
+		    SELECT min(msg.created_at) AS first_reply
+		    FROM messages msg
+		    WHERE msg.appeal_id = a.id AND msg.author_type IN ('expert','operator')
+		) m ON m.first_reply IS NOT NULL
+		WHERE `+periodFilter(from, to, &args), args...).Scan(&avg); err != nil {
+		return s, err
+	}
+	s.AvgFirstResponseMin = nullToPtr(avg)
+
+	var err error
+	distr := func(field, join string) ([]StatRow, error) {
+		args := []any{}
+		rows, err := st.DB.QueryContext(ctx, `
+			SELECT `+field+`, count(*) AS n
+			FROM appeals a
+			`+join+`
+			WHERE `+periodFilter(from, to, &args)+`
+			GROUP BY 1 ORDER BY n DESC`, args...)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		var out []StatRow
+		for rows.Next() {
+			var r StatRow
+			if err := rows.Scan(&r.Label, &r.Count); err != nil {
+				return nil, err
+			}
+			out = append(out, r)
+		}
+		return out, rows.Err()
+	}
+	if s.ByStatus, err = distr("a.status", ""); err != nil {
+		return s, err
+	}
+	if s.ByApplicantType, err = distr("a.applicant_type", ""); err != nil {
+		return s, err
+	}
+	if s.BySpecialistGroup, err = distr(
+		`CASE WHEN a.free_text_mode THEN 'free' ELSE COALESCE(c.specialist_group, 'free') END`,
+		"LEFT JOIN categories c ON c.id = a.category_id"); err != nil {
+		return s, err
 	}
 
-	rows, err := st.DB.QueryContext(ctx,
-		`SELECT status, count(*) FROM appeals GROUP BY status ORDER BY count(*) DESC`)
+	args = nil
+	rows, err := st.DB.QueryContext(ctx, `
+		SELECT COALESCE(c.name, 'Свободная форма'), count(*) AS n
+		FROM appeals a LEFT JOIN categories c ON c.id = a.category_id
+		WHERE `+periodFilter(from, to, &args)+`
+		GROUP BY 1 ORDER BY n DESC`, args...)
 	if err != nil {
 		return s, err
 	}
-	defer rows.Close()
 	for rows.Next() {
 		var r StatRow
 		if err := rows.Scan(&r.Label, &r.Count); err != nil {
+			rows.Close()
 			return s, err
 		}
-		s.ByStatus = append(s.ByStatus, r)
+		s.ByCategory = append(s.ByCategory, r)
 	}
-	if err = rows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
+		rows.Close()
 		return s, err
 	}
+	rows.Close()
 
-	rows2, err := st.DB.QueryContext(ctx, `
-		SELECT COALESCE(c.name, 'Свободная форма'), count(*) AS n
-		FROM appeals a LEFT JOIN categories c ON c.id = a.category_id
-		GROUP BY 1 ORDER BY n DESC LIMIT 5`)
+	// Нагрузка операторов за период — по событиям назначения.
+	args = []any{}
+	opConds := []string{"u.role = 'operator'", "e.event_type = 'assign'"}
+	if from != nil {
+		args = append(args, *from)
+		opConds = append(opConds, fmt.Sprintf("e.created_at >= $%d", len(args)))
+	}
+	if to != nil {
+		args = append(args, *to)
+		opConds = append(opConds, fmt.Sprintf("e.created_at < $%d", len(args)))
+	}
+	opRows, err := st.DB.QueryContext(ctx, `
+		SELECT u.login, u.role, count(DISTINCT e.appeal_id)
+		FROM appeal_events e JOIN users u ON u.id = e.actor_id
+		WHERE `+strings.Join(opConds, " AND ")+`
+		GROUP BY 1,2 ORDER BY 3 DESC`, args...)
 	if err != nil {
 		return s, err
 	}
-	defer rows2.Close()
-	for rows2.Next() {
-		var r StatRow
-		if err := rows2.Scan(&r.Label, &r.Count); err != nil {
+	for opRows.Next() {
+		var w WorkloadRow
+		if err := opRows.Scan(&w.Login, &w.Role, &w.Assigned); err != nil {
+			opRows.Close()
 			return s, err
 		}
-		s.TopCategories = append(s.TopCategories, r)
+		s.Workload = append(s.Workload, w)
 	}
-	if err = rows2.Err(); err != nil {
+	if err := opRows.Err(); err != nil {
+		opRows.Close()
 		return s, err
 	}
+	opRows.Close()
 
-	rows3, err := st.DB.QueryContext(ctx, `
-		SELECT COALESCE(c.specialist_group, 'free'), count(*) AS n
-		FROM appeals a LEFT JOIN categories c ON c.id = a.category_id
-		GROUP BY 1 ORDER BY n DESC`)
+	// Нагрузка экспертов за период — по ответственности за обращение.
+	args = nil
+	exRows, err := st.DB.QueryContext(ctx, `
+		SELECT u.login, u.role, count(*) AS assigned,
+		       count(*) FILTER (WHERE a.`+activeStatusFilter+`),
+		       count(*) FILTER (WHERE a.status = 'completed'),
+		       avg(extract(epoch from (a.updated_at - a.created_at)) / 3600.0)
+		         FILTER (WHERE a.status = 'completed')
+		FROM appeal_participants p
+		JOIN users u ON u.id = p.expert_id
+		JOIN appeals a ON a.id = p.appeal_id
+		WHERE u.role = 'expert' AND p.participant_role = 'responsible' AND `+periodFilter(from, to, &args)+`
+		GROUP BY 1,2`, args...)
 	if err != nil {
 		return s, err
 	}
-	defer rows3.Close()
-	for rows3.Next() {
-		var r StatRow
-		if err := rows3.Scan(&r.Label, &r.Count); err != nil {
+	for exRows.Next() {
+		var w WorkloadRow
+		var exAvg sql.NullFloat64
+		if err := exRows.Scan(&w.Login, &w.Role, &w.Assigned, &w.Active, &w.Completed, &exAvg); err != nil {
+			exRows.Close()
 			return s, err
 		}
-		s.BySpecialistGroup = append(s.BySpecialistGroup, r)
+		w.AvgResolutionHrs = nullToPtr(exAvg)
+		s.Workload = append(s.Workload, w)
 	}
-	return s, rows3.Err()
+	if err := exRows.Err(); err != nil {
+		exRows.Close()
+		return s, err
+	}
+	exRows.Close()
+
+	sort.SliceStable(s.Workload, func(i, j int) bool { return s.Workload[i].Assigned > s.Workload[j].Assigned })
+	return s, nil
 }

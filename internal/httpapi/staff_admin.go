@@ -2,9 +2,11 @@ package httpapi
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"otklik/internal/domain"
 )
@@ -47,8 +49,48 @@ func (s *Server) handleAdminSetStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.staffAppeal(r, a, p))
 }
 
+// parsePeriod разбирает параметры from/to (YYYY-MM-DD или RFC3339);
+// для даты без времени «до» означает конец этого дня.
+func parsePeriod(r *http.Request) (*time.Time, *time.Time, error) {
+	parse := func(v string) (*time.Time, bool, error) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return nil, false, nil
+		}
+		if t, err := time.Parse(time.DateOnly, v); err == nil {
+			return &t, true, nil
+		}
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			return nil, false, fmt.Errorf("invalid date %q: use YYYY-MM-DD or RFC3339", v)
+		}
+		return &t, false, nil
+	}
+	from, _, err := parse(r.URL.Query().Get("from"))
+	if err != nil {
+		return nil, nil, err
+	}
+	to, toDay, err := parse(r.URL.Query().Get("to"))
+	if err != nil {
+		return nil, nil, err
+	}
+	if to != nil && toDay {
+		end := to.Add(24 * time.Hour)
+		to = &end
+	}
+	if from != nil && to != nil && !to.After(*from) {
+		return nil, nil, fmt.Errorf("'to' must be after 'from'")
+	}
+	return from, to, nil
+}
+
 func (s *Server) handleAdminStats(w http.ResponseWriter, r *http.Request) {
-	stats, err := s.st.GetAdminStats(r.Context())
+	from, to, err := parsePeriod(r)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errorResp{err.Error()})
+		return
+	}
+	stats, err := s.st.GetAdminStats(r.Context(), from, to)
 	if err != nil {
 		writeErr(w, err)
 		return
@@ -99,7 +141,7 @@ func (s *Server) handleExportAppeals(w http.ResponseWriter, r *http.Request) {
 		for _, it := range items {
 			row(it.ID.String(), it.ApplicantType, deref(it.CategoryName),
 				it.Status, it.Priority, boolStr(it.CrisisDetected), "",
-				"0", it.CreatedAt.Format("2006-01-02 15:04"), it.UpdatedAt.Format("2006-01-02 15:04"))
+				strconv.Itoa(it.ReturnCount), it.CreatedAt.Format("2006-01-02 15:04"), it.UpdatedAt.Format("2006-01-02 15:04"))
 		}
 	} else {
 		items, err := s.st.ListAppealsMeta(r.Context())

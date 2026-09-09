@@ -158,6 +158,7 @@ type ExpertListItem struct {
 	Status         string    `json:"status"`
 	Priority       string    `json:"priority"`
 	CrisisDetected bool      `json:"crisis_detected"`
+	ReturnCount    int       `json:"return_count"`
 	CreatedAt      time.Time `json:"created_at"`
 	UpdatedAt      time.Time `json:"updated_at"`
 }
@@ -166,7 +167,7 @@ func (st *Store) ListExpertAppeals(ctx context.Context, expertID uuid.UUID,
 	status, category, priority string) ([]ExpertListItem, error) {
 	rows, err := st.DB.QueryContext(ctx, `
 		SELECT a.id, a.applicant_type, c.name, a.status, a.priority, a.crisis_detected,
-		       a.created_at, a.updated_at
+		       a.return_count, a.created_at, a.updated_at
 		FROM appeals a
 		JOIN appeal_participants p ON p.appeal_id = a.id
 		LEFT JOIN categories c ON c.id = a.category_id
@@ -184,7 +185,7 @@ func (st *Store) ListExpertAppeals(ctx context.Context, expertID uuid.UUID,
 	for rows.Next() {
 		var it ExpertListItem
 		if err := rows.Scan(&it.ID, &it.ApplicantType, &it.CategoryName, &it.Status,
-			&it.Priority, &it.CrisisDetected, &it.CreatedAt, &it.UpdatedAt); err != nil {
+			&it.Priority, &it.CrisisDetected, &it.ReturnCount, &it.CreatedAt, &it.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, it)
