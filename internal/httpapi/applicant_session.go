@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -94,6 +95,16 @@ func (s *Server) handleApplicantPostMessage(w http.ResponseWriter, r *http.Reque
 		writeJSON(w, http.StatusConflict, errorResp{"appeal is closed"})
 		return
 	}
+	// Ответ заявителя снимает ожидание уточнения (needs_clarification -> in_progress),
+	// чтобы у специалиста пропадала плашка «ожидаем ответа заявителя».
+	if a.Status == domain.StatusNeedsClarification {
+		if _, err := s.st.TransitionStatus(r.Context(), p.AppealID, nil, domain.RoleApplicant,
+			domain.StatusNeedsClarification, domain.StatusInProgress, "applicant_responded"); err != nil &&
+			!errors.Is(err, domain.ErrConflict) {
+			writeErr(w, err)
+			return
+		}
+	}
 	if len(strings.TrimSpace(req.Text)) < 1 || len(req.Text) > 4000 {
 		writeJSON(w, http.StatusBadRequest, errorResp{"message text length must be 1..4000"})
 		return
@@ -140,6 +151,18 @@ func (s *Server) handleApplicantAppend(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeErr(w, err)
 		return
+	}
+	// Дополнение — тоже ответ заявителя: снимаем ожидание уточнения.
+	if a.Status == domain.StatusNeedsClarification {
+		a2, err := s.st.TransitionStatus(r.Context(), p.AppealID, nil, domain.RoleApplicant,
+			domain.StatusNeedsClarification, domain.StatusInProgress, "applicant_responded")
+		if err != nil && !errors.Is(err, domain.ErrConflict) {
+			writeErr(w, err)
+			return
+		}
+		if err == nil {
+			a = a2
+		}
 	}
 	resp := map[string]any{
 		"status":             a.Status,

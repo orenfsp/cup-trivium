@@ -319,10 +319,23 @@ func TestIT_ClarificationChatAndComplaint(t *testing.T) {
 		t.Fatalf("статус = %q, want needs_clarification", got)
 	}
 
-	// Заявитель дописывает в чат; сотрудник читает переписку.
+	// Заявитель дополняет обращение — это тоже ответ: статус возвращается
+	// к in_progress, у специалиста пропадает плашка «ожидаем ответа».
 	ac := e.applicantCookie(track)
+	w = e.mustDo(e.pub, "POST", "/api/appeals/me/append", "", ac,
+		map[string]string{"text": "Драка случилась на уроке физкультуры, я не виноват"}, http.StatusOK)
+	if got := appealStatus(t, w); got != "in_progress" {
+		t.Errorf("после дополнения статус = %q, want in_progress", got)
+	}
+
+	// Заявитель дописывает в чат; сотрудник читает переписку.
 	e.mustDo(e.pub, "POST", "/api/appeals/me/messages", "", ac,
 		map[string]string{"text": "Это было на уроке физкультуры"}, http.StatusCreated)
+	// Ответ в чате также возвращает статус к in_progress, если он ещё был needs_clarification.
+	w = e.mustDo(e.pub, "GET", "/api/appeals/me/", "", ac, nil, http.StatusOK)
+	if got := appealStatus(t, w); got != "in_progress" {
+		t.Errorf("после ответа в чате статус = %q, want in_progress", got)
+	}
 	w = e.mustDo(e.staff, "GET", "/api/appeals/"+appealID+"/messages", expTok, nil, nil, http.StatusOK)
 	if !strings.Contains(w.Body.String(), "на уроке физкультуры") {
 		t.Errorf("сообщение заявителя не видно эксперту: %s", w.Body.String())
@@ -333,7 +346,9 @@ func TestIT_ClarificationChatAndComplaint(t *testing.T) {
 		map[string]string{"text": "эксперт отвечал слишком долго"}, http.StatusCreated)
 	e.mustDo(e.staff, "GET", "/api/operator/complaints", opTok, nil, nil, http.StatusOK)
 
-	// Оператор закрывает обращение без ответа заявителя.
+	// Оператор закрывает обращение без ответа заявителя. Заявитель уже ответил,
+	// поэтому сначала эксперт повторно запрашивает уточнение (возврат в needs_clarification).
+	e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/clarify", expTok, nil, nil, http.StatusOK)
 	w = e.mustDo(e.staff, "POST", "/api/appeals/"+appealID+"/close-no-response", opTok, nil, nil, http.StatusOK)
 	if got := appealStatus(t, w); got != "closed_no_response" {
 		t.Fatalf("статус = %q, want closed_no_response", got)
