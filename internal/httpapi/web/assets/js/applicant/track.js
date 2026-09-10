@@ -23,11 +23,10 @@ export function saveTrack(track) {
 function copyTrack() {
   const t = lastTrack || $('apTrack').textContent.trim();
   if (!t) return;
-  const url = trackURL(t);
-  const done = () => toast('Ссылка на обращение скопирована');
+  const done = () => toast('Трек-номер скопирован');
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done));
-  } else fallbackCopy(url, done);
+    navigator.clipboard.writeText(t).then(done).catch(() => fallbackCopy(t, done));
+  } else fallbackCopy(t, done);
 }
 
 function fallbackCopy(t, done) {
@@ -38,7 +37,7 @@ function fallbackCopy(t, done) {
   document.body.appendChild(ta);
   ta.select();
   try { document.execCommand('copy'); done(); }
-  catch (e) { toast('Скопируйте ссылку вручную: ' + t); }
+  catch (e) { toast('Скопируйте номер вручную: ' + t); }
   ta.remove();
 }
 
