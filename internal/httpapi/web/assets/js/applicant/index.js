@@ -34,7 +34,7 @@ export async function trackInit() {
 
 // Страница /appeal — статус и чат по обращению заявителя.
 export async function appealInit() {
-  // Прямая ссылка из QR-кода или файла-памятки: /appeal?track=ОТК-...
+  // Прямая ссылка из сохранённой ссылки или файла-памятки: /appeal?track=ОТК-...
   const urlTrack = new URLSearchParams(location.search).get('track');
   if (urlTrack) {
     saveTrack(urlTrack);

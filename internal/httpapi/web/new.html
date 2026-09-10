@@ -52,10 +52,9 @@ document.body.classList.add(window.UI_MODE + "-mode");
       <div class="ok-box" id="apResultNote" data-informal="Спасибо, что поделился. Мы получили твоё обращение. Сохрани этот номер — по нему можно вернуться к разговору. Внимание: если потеряешь номер — восстановить его будет невозможно!" data-formal="Спасибо, что поделились. Мы получили ваше обращение. Сохраните этот номер — по нему можно вернуться к разговору. Внимание: если вы потеряете номер — восстановить его будет невозможно!">Спасибо, что поделился. Мы получили твоё обращение. Сохрани этот номер — по нему можно вернуться к разговору. Внимание: если потеряешь номер — восстановить его будет невозможно!</div>
       <div class="track" id="apTrack"></div>
       <div class="btnrow" style="margin-top:10px">
-        <button class="ghost" data-action="copy-track">📋 Скопировать номер</button>
-        <button class="ghost" data-action="download-track">💾 Скачать файл-памятку</button>
+        <button class="ghost" data-action="copy-track">📋 Скопировать ссылку</button>
+        <button class="ghost" data-action="download-track">💾 Сохранить ссылку (файл-памятка)</button>
       </div>
-      <div id="apQR" style="margin:12px 0;text-align:center"></div>
       <div id="apCrisisHelp" class="hidden"></div>
       <div class="note" id="apCrisisNote"></div>
       <button class="act" data-action="open-my-appeal">Открыть моё обращение</button>
@@ -63,7 +62,6 @@ document.body.classList.add(window.UI_MODE + "-mode");
   </div>
 </section>
 </main>
-<script src="/assets/vendor/qrcode.min.js"></script>
 <script type="module" src="/assets/js/main.js"></script>
 </body>
 </html>

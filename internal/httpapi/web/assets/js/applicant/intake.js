@@ -2,7 +2,7 @@ import { $, esc, showErr, hideErr, toast } from '../core/dom.js';
 import { api } from '../core/api.js';
 import { registerActions } from '../core/actions.js';
 import { loadCategories } from '../categories.js';
-import { rememberTrack, saveTrack, renderQR, lastTrackNumber } from './track.js';
+import { rememberTrack, saveTrack, lastTrackNumber } from './track.js';
 import { applyTone, t } from './tone.js';
 
 function syncFree() {
@@ -75,7 +75,6 @@ async function createAppeal() {
     // ТЗ «Кризисные обращения», п.2: полная кризисная помощь сразу, не дожидаясь оператора.
     renderCrisisHelp(r.crisis_help);
     saveTrack(r.track_number);
-    renderQR(r.track_number);
   } catch (e) {
     showErr('apErr', e);
   }

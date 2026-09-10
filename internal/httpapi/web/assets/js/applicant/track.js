@@ -23,10 +23,11 @@ export function saveTrack(track) {
 function copyTrack() {
   const t = lastTrack || $('apTrack').textContent.trim();
   if (!t) return;
-  const done = () => toast('Трек-номер скопирован');
+  const url = trackURL(t);
+  const done = () => toast('Ссылка на обращение скопирована');
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(t).then(done).catch(() => fallbackCopy(t, done));
-  } else fallbackCopy(t, done);
+    navigator.clipboard.writeText(url).then(done).catch(() => fallbackCopy(url, done));
+  } else fallbackCopy(url, done);
 }
 
 function fallbackCopy(t, done) {
@@ -37,7 +38,7 @@ function fallbackCopy(t, done) {
   document.body.appendChild(ta);
   ta.select();
   try { document.execCommand('copy'); done(); }
-  catch (e) { toast('Скопируйте номер вручную: ' + t); }
+  catch (e) { toast('Скопируйте ссылку вручную: ' + t); }
   ta.remove();
 }
 
@@ -62,21 +63,6 @@ function downloadTrack() {
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
 }
 
-export function renderQR(track) {
-  const box = $('apQR');
-  box.innerHTML = '';
-  if (typeof qrcode === 'undefined') return; // библиотека QR (локальная, /assets/vendor) не загрузилась — просто без кода
-  try {
-    const qr = qrcode(0, 'M');
-    qr.addData(trackURL(track));
-    qr.make();
-    box.innerHTML = `<img src="${qr.createDataURL(5, 8)}" width="200" height="200" alt="QR-код для входа по трек-номеру">` +
-      '<div class="note">Наведите камеру телефона — откроется ваше обращение</div>';
-  } catch (e) {
-    box.innerHTML = '';
-  }
-}
-
 export function renderSaved() {
   const box = $('savedTracks'); // список есть только на странице /track
   if (!box) return;
@@ -94,7 +80,7 @@ function useTrack(t) {
 export async function verifyTrack() {
   hideErr('trkErr');
   const tn = $('trkInput').value.trim();
-  if (!tn) { showErr('trkErr', new Error(t('Вставь трек-номер обращения — он в файле-памятке или в QR-коде', 'Вставьте трек-номер обращения — он в файле-памятке или в QR-коде'))); return; }
+  if (!tn) { showErr('trkErr', new Error(t('Вставь трек-номер обращения — он в файле-памятке или в сохранённой ссылке', 'Вставьте трек-номер обращения — он в файле-памятке или в сохранённой ссылке'))); return; }
   try {
     await api('POST', '/api/appeals/track', { track_number: tn });
     saveTrack(tn);

@@ -131,7 +131,7 @@ func TestAssetsETagCaching(t *testing.T) {
 	h := httpapi.New(testCfg(), nil)
 
 	w1 := httptest.NewRecorder()
-	h.ServeHTTP(w1, httptest.NewRequest("GET", "/assets/vendor/qrcode.min.js", nil))
+	h.ServeHTTP(w1, httptest.NewRequest("GET", "/assets/js/main.js", nil))
 	if w1.Code != http.StatusOK {
 		t.Fatalf("ассет: код = %d", w1.Code)
 	}
@@ -143,7 +143,7 @@ func TestAssetsETagCaching(t *testing.T) {
 		t.Errorf("Cache-Control = %q, want no-cache", cc)
 	}
 
-	r := httptest.NewRequest("GET", "/assets/vendor/qrcode.min.js", nil)
+	r := httptest.NewRequest("GET", "/assets/js/main.js", nil)
 	r.Header.Set("If-None-Match", etag)
 	w2 := httptest.NewRecorder()
 	h.ServeHTTP(w2, r)
